@@ -123,9 +123,9 @@ function get_idle_drives() {
     local ACTIVE_DRIVES=`tail -n +$((CUT_OFFSET+2)) <<< ${IOSTAT_OUTPUT} | awk '{printf $1}{printf " "}'`
 
     # Remove active drives from list to get idle drives
-    local IDLE_DRIVES="$(get_drives)"
+    local IDLE_DRIVES=" $(get_drives) " # Space padding must be kept for pattern matching
     for drive in ${ACTIVE_DRIVES}; do
-        IDLE_DRIVES=`sed "s/${drive}//g" <<< ${IDLE_DRIVES}`
+        IDLE_DRIVES=`sed "s/\s${drive}\s/ /g" <<< ${IDLE_DRIVES}`
     done
 
     echo ${IDLE_DRIVES}
