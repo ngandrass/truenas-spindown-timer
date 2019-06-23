@@ -33,7 +33,8 @@
 TIMEOUT=3600       # Default timeout before considering a drive as idle
 POLL_TIME=600      # Default time to wait during a single iostat call
 IGNORED_DRIVES=""  # Default list of drives that are never spun down
-VERBOSE=1          # Default verbosity level
+QUIET=0            # Default quiet mode setting
+VERBOSE=0          # Default verbosity level
 DRYRUN=0           # Default for dryrun option
 
 ##
@@ -49,13 +50,14 @@ during intervals with a length of POLL_TIME seconds. Detected reads or
 writes reset the drives timer back to TIMEOUT.
 
 Options:
-  -q           : Quiet mode. Outputs are suppressed if flag is present
-  -d           : Dry run. No actual spindown is performed
+  -q           : Quiet mode. Outputs are suppressed if flag is present.
+  -v           : Verbose mode. Prints additonal information during execution.
+  -d           : Dry run. No actual spindown is performed.
   -t TIMEOUT   : Number of seconds to wait for I/O in total before considering
-                 a drive as idle
+                 a drive as idle.
   -p POLL_TIME : Number of seconds to wait for I/O during a single iostat call.
-  -i DRIVE     : Ignores the given drive and never issue a spindown for it
-  -h           : Print this help message
+  -i DRIVE     : Ignores the given drive and never issue a spindown for it.
+  -h           : Print this help message.
 
 Example usage:
 $0
@@ -64,11 +66,22 @@ EOF
 }
 
 ##
-# Writes argument $1 to stdout if $VERBOSE is set
+# Writes argument $1 to stdout if $QUIET is not set
 ##
 function log() {
-    if [[ $VERBOSE -eq 1 ]]; then
+    if [[ $QUIET -eq 0 ]]; then
         echo $1
+    fi
+}
+
+##
+# Writes argument $1 to stdout if $VERBOSE is set and $QUIET is not set
+##
+function log_verbose() {
+    if [[ $VERBOSE -eq 1 ]]; then
+        if [[ $QUIET -eq 0 ]]; then
+            echo $1
+        fi
     fi
 }
 
@@ -133,6 +146,8 @@ function get_drive_timeouts() {
 # Main program loop
 ##
 function main() {
+    if [[ $DRYRUN -eq 1 ]]; then log "Performing a dry run..."; fi
+
     log "Monitoring drives with a timeout of ${TIMEOUT} seconds: $(get_drives)"
     log "I/O check sample period: ${POLL_TIME} sec"
 
@@ -141,6 +156,7 @@ function main() {
     for drive in $(get_drives); do
         DRIVE_TIMEOUTS[$drive]=${TIMEOUT}
     done
+    log_verbose "$(get_drive_timeouts)"
 
     # Drive I/O monitoring loop
     while true; do
@@ -158,11 +174,13 @@ function main() {
                 DRIVE_TIMEOUTS[$drive]=${TIMEOUT}
             fi
         done
+
+        log_verbose "$(get_drive_timeouts)"
     done
 }
 
 # Parse arguments
-while getopts ":hqdt:p:i:" opt; do
+while getopts ":hqvdt:p:i:" opt; do
   case ${opt} in
     t ) TIMEOUT=${OPTARG}
       ;;
@@ -170,9 +188,11 @@ while getopts ":hqdt:p:i:" opt; do
       ;;
     i ) IGNORED_DRIVES="$IGNORED_DRIVES ${OPTARG}"
       ;;
-    q ) VERBOSE=1
+    q ) QUIET=1
       ;;
-    d ) log "Performing a dry run..."; DRYRUN=1
+    v ) VERBOSE=1
+      ;;
+    d ) DRYRUN=1
       ;;
     h ) print_usage; exit
       ;;
