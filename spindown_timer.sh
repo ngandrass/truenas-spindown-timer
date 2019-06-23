@@ -67,6 +67,9 @@ EOF
 
 ##
 # Writes argument $1 to stdout if $QUIET is not set
+#
+# Arguments:
+#   $1 Message to write to stdout
 ##
 function log() {
     if [[ $QUIET -eq 0 ]]; then
@@ -76,6 +79,9 @@ function log() {
 
 ##
 # Writes argument $1 to stdout if $VERBOSE is set and $QUIET is not set
+#
+# Arguments:
+#   $1 Message to write to stdout
 ##
 function log_verbose() {
     if [[ $VERBOSE -eq 1 ]]; then
@@ -106,6 +112,9 @@ function get_drives() {
 # experience I/O operations during that period.
 #
 # Devices listed in $IGNORED_DRIVES will never get returned.
+#
+# Arguments:
+#   $1 Seconds to listen for I/O before drives are considered idle
 ##
 function get_idle_drives() {
     # Wait for $1 seconds and get active drives
@@ -123,14 +132,31 @@ function get_idle_drives() {
 }
 
 ##
+# Determines whether the given drive $1 is spinning
+#
+# Arguments:
+#   $1 Device identifier of the drive
+##
+function drive_is_spinning() {
+    echo "`camcontrol cmd $1 -a 'E5 00 00 00 00 00 00 00 00 00 00 00' -r - | cut -d ' ' -f 10 | sed 's/FF/1/' | sed 's/00/0/'`"
+}
+
+##
 # Forces the spindown of the drive specified by parameter $1 trough camcontrol
+#
+# Arguments:
+#   $1 Device identifier of the drive
 ##
 function spindown_drive() {
-    if [[ $DRYRUN -eq 0 ]]; then
-        camcontrol standby $1
-    fi
+    if [[ $(drive_is_spinning $1) -eq 1 ]]; then
+        if [[ $DRYRUN -eq 0 ]]; then
+            camcontrol standby $1
+        fi
 
-    log "Spun down idle drive: $1"
+        log "Spun down idle drive: $1"
+    else
+        log_verbose "Drive is already spun down: $1"
+    fi
 }
 
 ##
