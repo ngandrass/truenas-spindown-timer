@@ -31,6 +31,7 @@
 # ##################################################
 
 TIMEOUT=3600       # Default timeout before considering a drive as idle
+POLL_TIME=600      # Default time to wait during a single iostat call
 IGNORED_DRIVES=""  # Default list of drives that are never spun down
 VERBOSE=1          # Default verbosity level
 DRYRUN=0           # Default for dryrun option
@@ -40,14 +41,25 @@ DRYRUN=0           # Default for dryrun option
 ##
 function print_usage() {
     cat << EOF
-Usage: $0 [-h] [-q] [-d] [-t TIMEOUT] [-i DRIVE]
+Usage: $0 [-h] [-q] [-v] [-d] [-t TIMEOUT] [-p POLL_TIME] [-i DRIVE]
+
+A drive is considered as idle and is spun down if there has been no I/O
+operations on it for at least TIMEOUT seconds. I/O requests are detected
+during intervals with a length of POLL_TIME seconds. Detected reads or
+writes reset the drives timer back to TIMEOUT.
 
 Options:
-  -q         : Quiet mode. Outputs are suppressed if flag is present
-  -d         : Dry run. No actual spindown is performed
-  -t TIMEOUT : Number of seconds to wait for I/O before considering a drive as idle
-  -i DRIVE   : Ignores the given drive and never issue a spindown for it
-  -h         : Print this help message
+  -q           : Quiet mode. Outputs are suppressed if flag is present
+  -d           : Dry run. No actual spindown is performed
+  -t TIMEOUT   : Number of seconds to wait for I/O in total before considering
+                 a drive as idle
+  -p POLL_TIME : Number of seconds to wait for I/O during a single iostat call.
+  -i DRIVE     : Ignores the given drive and never issue a spindown for it
+  -h           : Print this help message
+
+Example usage:
+$0
+$0 -q -t 3600 -p 600 -i ada0 -i ada1
 EOF
 }
 
@@ -77,21 +89,21 @@ function get_drives() {
 }
 
 ##
-# Waits $TIMEOUT seconds and returns a list of all drives that didn't
+# Waits $1 seconds and returns a list of all drives that didn't
 # experience I/O operations during that period.
 #
 # Devices listed in $IGNORED_DRIVES will never get returned.
 ##
 function get_idle_drives() {
-    # Wait for $TIMEOUT seconds and get active drives
-    local IOSTAT_OUTPUT=`iostat -x -z -d ${TIMEOUT} 2`
+    # Wait for $1 seconds and get active drives
+    local IOSTAT_OUTPUT=`iostat -x -z -d $1 2`
     local CUT_OFFSET=`grep -no "extended device statistics" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+'`
     local ACTIVE_DRIVES=`tail -n +$((CUT_OFFSET+2)) <<< ${IOSTAT_OUTPUT} | awk '{printf $1}{printf " "}'`
 
     # Remove active drives from list to get idle drives
     local IDLE_DRIVES="$(get_drives)"
     for drive in ${ACTIVE_DRIVES}; do
-        IDLE_DRIVES=`grep -v "${drive}" <<< ${IDLE_DRIVES}`
+        IDLE_DRIVES=`sed "s/${drive}//g" <<< ${IDLE_DRIVES}`
     done
 
     echo ${IDLE_DRIVES}
@@ -108,10 +120,53 @@ function spindown_drive() {
     log "Spun down idle drive: $1"
 }
 
+##
+# Generates a list of all active timeouts
+##
+function get_drive_timeouts() {
+    echo -n "$(date '+%F %T') Drive timeouts: "
+    for x in "${!DRIVE_TIMEOUTS[@]}"; do printf "[%s]=%s " "$x" "${DRIVE_TIMEOUTS[$x]}" ; done
+    echo ""
+}
+
+##
+# Main program loop
+##
+function main() {
+    log "Monitoring drives with a timeout of ${TIMEOUT} seconds: $(get_drives)"
+    log "I/O check sample period: ${POLL_TIME} sec"
+
+    # Init timeout counters for all monitored drives
+    declare -A DRIVE_TIMEOUTS
+    for drive in $(get_drives); do
+        DRIVE_TIMEOUTS[$drive]=${TIMEOUT}
+    done
+
+    # Drive I/O monitoring loop
+    while true; do
+        local IDLE_DRIVES=$(get_idle_drives ${POLL_TIME})
+
+        for drive in "${!DRIVE_TIMEOUTS[@]}"; do
+            if [[ $IDLE_DRIVES =~ $drive ]]; then
+                DRIVE_TIMEOUTS[$drive]=$((DRIVE_TIMEOUTS[$drive] - POLL_TIME))
+
+                if [[ ! ${DRIVE_TIMEOUTS[$drive]} -gt 0 ]]; then
+                    DRIVE_TIMEOUTS[$drive]=${TIMEOUT}
+                    spindown_drive ${drive}
+                fi
+            else
+                DRIVE_TIMEOUTS[$drive]=${TIMEOUT}
+            fi
+        done
+    done
+}
+
 # Parse arguments
-while getopts ":hqdt:i:" opt; do
+while getopts ":hqdt:p:i:" opt; do
   case ${opt} in
     t ) TIMEOUT=${OPTARG}
+      ;;
+    p ) POLL_TIME=${OPTARG}
       ;;
     i ) IGNORED_DRIVES="$IGNORED_DRIVES ${OPTARG}"
       ;;
@@ -128,9 +183,4 @@ while getopts ":hqdt:i:" opt; do
   esac
 done
 
-# Main program
-log "Waiting ${TIMEOUT} seconds for I/O on the following drives: $(get_drives)"
-
-for drive in $(get_idle_drives); do
-    spindown_drive ${drive}
-done
+main # Start main program
