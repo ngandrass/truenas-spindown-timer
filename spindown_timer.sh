@@ -153,9 +153,9 @@ function spindown_drive() {
             camcontrol standby $1
         fi
 
-        log "Spun down idle drive: $1"
+        log "$(date '+%F %T') Spun down idle drive: $1"
     else
-        log_verbose "Drive is already spun down: $1"
+        log_verbose "$(date '+%F %T') Drive is already spun down: $1"
     fi
 }
 
