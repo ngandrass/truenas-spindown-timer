@@ -48,3 +48,10 @@ Bug report and contributions are welcome! Feel free to open a new issue or submi
 
 ## Attributions
 The script is heavily inspired by: [https://serverfault.com/a/969252](https://serverfault.com/a/969252)
+
+## Support
+My work helped you in some way or you just like it? Awesome!
+
+If you want to support me you can consider buying me a cofee/tea/mate. Thank You! <3
+
+[![ko-fi.com/ngandrass](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A0A3XX87)
