@@ -7,7 +7,7 @@ given period of time it is considered idle and gets spun down.
 
 This *excludes* periodic reads of S.M.A.R.T. data performed by the smartctl service which
 therefore enables users to have S.M.A.R.T. reporting turned on while still being able to
-automatically spin down disks. The script is also immune to the periodic disk temperature
+automatically spin down disks. The script also is immune to the periodic disk temperature
 reads in newer versions of FreeNAS.
 
 Currently tested on `FreeNAS-11.2-U4.1`.
@@ -41,6 +41,60 @@ Options:
 ```
 
 ## Deployment and configuration
+The following steps describe how to configure FreeNAS and setup the script.
+
+### Configure disk-standby aware S.M.A.R.T.
+To prevent the smartctl daemon from waking up already spun down disks open the FreeNAS
+GUI and navigate to `Services > S.M.A.R.T. > Configure`:
+
+![S.M.A.R.T. configuration button](screenshots/smart-service-conf-btn.png)
+
+Set `Power Mode` to `Standby` and save changes:
+
+![Power mode dropdown](screenshots/smart-service-power-mode.png)
+
+### Deploy script
+Copy the script to your NAS and set the execute permission trough `chmod +x spindown_timer.sh`.
+
+That's it! The script can now be run, i.e. in a `tmux` session. However, an automatic start
+during FreeNAS's boot sequence is highly recommended (see next section).
+
+### Automatic start at boot
+There are multiple ways to enbale the spindown timer after startup. The easiest one probably is
+to register it as an `Init Script` within the FreeNAS GUI. This can be done by opening the GUI
+and navigating to `Tasks > Init/Shutdown Scripts` and creating a new `Post Init` task that
+executes `spindown_timer.sh` after boot.
+
+![Spindown timer post init task](screenshots/task.png)
+
+_Note: Be sure to select `Command` as `Type`_
+
+#### Delayed start (i.e. script placed in encrypted pool)
+If you've placed the script at a location that is not available right after boot a delayed start
+of the spindown timer is required. This for example applies to situations where the script is
+located inside an encrypted pool which needs to be unlocked prior to execution.
+
+To automatically delay the start until the script file becomes available the helper script
+`delayed_start.sh` is provided. It takes the full path to the spindown timer script as it's
+first argument. Additional arguments are passed to the called script once available. Example
+usage: `./delayed_start.sh /mnt/pool/spindown_timer.sh -t 3600 -p 600`
+
+The `delayed_start.sh` script however must again be placed in a location that is available right
+after boot. To circumvent this problem you can also use the following one-liner directly from an
+`Init/Shutdown Script` as shown in the screenshot below. Set `SCRIPT` to the path where the 
+`spindown_timer.sh` file is stored and configure all desired call arguments trough setting them
+in the `ARGS` variable. The `CHECK` variable determines the delay between execution attempts in
+seconds.
+
+```bash
+/bin/bash -c 'SCRIPT="/mnt/pool/spindown_timer.sh"; ARGS="-t 3600 -p 600"; CHECK=60; while true; do if [ -f "${SCRIPT}" ]; then ${SCRIPT} ${ARGS}; break; else sleep ${CHECK}; fi; done'
+```
+
+![Spindown timer delayed post init task](screenshots/task-delayed-oneliner.png)
+
+_Note: Be sure to select `Command` as `Type`_
+
+#### Verify autostart
 // TODO
 
 ## Bug reports and contributions
