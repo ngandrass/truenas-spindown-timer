@@ -95,7 +95,9 @@ seconds.
 _Note: Be sure to select `Command` as `Type`_
 
 #### Verify autostart
-// TODO
+You can verify execution of the script either using a process manager like `htop` or simply by using the following command: `ps -aux | grep "spindown_timer.sh"`
+
+When using a delayed start keep in mind that it might take some seconds before the script availability is updated and the spindown timer is finally executed.
 
 ## Bug reports and contributions
 Bug report and contributions are welcome! Feel free to open a new issue or submit a merge request :)
