@@ -97,11 +97,12 @@ function log_verbose() {
 # Drives listed in $IGNORE_DRIVES will be excluded.
 ##
 function get_drives() {
-    local DRIVES=`iostat -x | grep 'ada' | awk '{print $1}'`
+    local DRIVES=`iostat -x | grep 'ada' | awk '{printf $1 " "}'`
+    DRIVES=" ${DRIVES} " # Space padding must be kept for pattern matching
 
     # Remove ignored drives
     for drive in ${IGNORED_DRIVES[@]}; do
-        DRIVES=`grep -v "${drive}" <<< ${DRIVES}`
+        DRIVES=`sed "s/ ${drive} / /g" <<< ${DRIVES}`
     done
 
     echo ${DRIVES}
@@ -125,7 +126,7 @@ function get_idle_drives() {
     # Remove active drives from list to get idle drives
     local IDLE_DRIVES=" $(get_drives) " # Space padding must be kept for pattern matching
     for drive in ${ACTIVE_DRIVES}; do
-        IDLE_DRIVES=`sed "s/\s${drive}\s/ /g" <<< ${IDLE_DRIVES}`
+        IDLE_DRIVES=`sed "s/ ${drive} / /g" <<< ${IDLE_DRIVES}`
     done
 
     echo ${IDLE_DRIVES}
