@@ -99,7 +99,7 @@ function log_verbose() {
 # Drives listed in $IGNORE_DRIVES will be excluded.
 ##
 function get_drives() {
-    local DRIVES=`iostat -x | grep -E '(ada|da)' | awk '{printf $1 " "}'`
+    local DRIVES=`iostat -x | grep -E '^(ada|da)' | awk '{printf $1 " "}'`
     DRIVES=" ${DRIVES} " # Space padding must be kept for pattern matching
 
     # Remove ignored drives
