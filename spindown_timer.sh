@@ -4,7 +4,7 @@
 # FreeNAS HDD Spindown Timer
 # Monitors drive I/O and forces HDD spindown after a given idle period.
 #
-# Version: 1.0
+# Version: 1.1
 #
 # See: https://github.com/ngandrass/freenas-spindown-timer
 #
