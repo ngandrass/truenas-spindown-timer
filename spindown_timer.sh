@@ -4,7 +4,7 @@
 # FreeNAS HDD Spindown Timer
 # Monitors drive I/O and forces HDD spindown after a given idle period.
 #
-# Version: 1.0
+# Version: 1.1
 #
 # See: https://github.com/ngandrass/freenas-spindown-timer
 #
@@ -94,12 +94,12 @@ function log_verbose() {
 }
 
 ##
-# Retrieves a list of all connected drives (devices prefixed with "ada").
+# Retrieves a list of all connected drives (devices prefixed with "ada|da").
 #
 # Drives listed in $IGNORE_DRIVES will be excluded.
 ##
 function get_drives() {
-    local DRIVES=`iostat -x | grep 'ada' | awk '{printf $1 " "}'`
+    local DRIVES=`iostat -x | grep -E '^(ada|da)' | awk '{printf $1 " "}'`
     DRIVES=" ${DRIVES} " # Space padding must be kept for pattern matching
 
     # Remove ignored drives
