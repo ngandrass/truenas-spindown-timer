@@ -141,7 +141,7 @@ function get_idle_drives() {
 #   $1 Device identifier of the drive
 ##
 function drive_is_spinning() {
-    echo "`camcontrol cmd $1 -a 'E5 00 00 00 00 00 00 00 00 00 00 00' -r - | cut -d ' ' -f 10 | sed 's/FF/1/' | sed 's/00/0/'`"
+    if [[ -z $(camcontrol epc $1 -c status -P | grep 'S') ]]; then echo 1; else echo 0; fi
 }
 
 ##
