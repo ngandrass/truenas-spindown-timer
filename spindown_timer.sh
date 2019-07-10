@@ -141,7 +141,7 @@ function get_idle_drives() {
 #   $1 Device identifier of the drive
 ##
 function drive_is_spinning() {
-    if [[ -z $(camcontrol epc $1 -c status -P | grep 'S') ]]; then echo 1; else echo 0; fi
+    if [[ -z $(camcontrol epc $1 -c status -P | grep 'Standby') ]]; then echo 1; else echo 0; fi
 }
 
 ##
