@@ -15,6 +15,7 @@ Currently tested on `FreeNAS-11.2-U4.1`.
 ## Key Features
   * Periodic S.M.A.R.T. reads don't reset the idle timers
   * Configurable idle timeout and poll interval
+  * Support for ATA and SCSI devices
   * Per-disk idle timer / Independent spindown
   * Ignoring of specific drives (e.g. SSD with system dataset)
   * Runnable via `Tasks` as `Post-Init Script`, configurable trough FreeNAS GUI

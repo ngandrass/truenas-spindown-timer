@@ -141,7 +141,7 @@ function get_idle_drives() {
 #   $1 Device identifier of the drive
 ##
 function is_ata_drive() {
-    if [[ -z $(camcontrol identify $1 |& grep -E "^protocol(.*)ATA") ]]; then echo 1; else echo 0; fi
+    if [[ -n $(camcontrol identify $1 |& grep -E "^protocol(.*)ATA") ]]; then echo 1; else echo 0; fi
 }
 
 ##
@@ -154,8 +154,11 @@ function drive_is_spinning() {
     if [[ $(is_ata_drive $1) -eq 1 ]]; then
         if [[ -z $(camcontrol epc $1 -c status -P | grep 'Standby') ]]; then echo 1; else echo 0; fi
     else
-        # TODO
-        echo 1
+        # Reads STANDBY values from the power condition mode page (0x1a).
+        # THIS IS EXPERIMENTAL AND UNTESTED due to the lack of SCSI drives :(
+        #
+        # See: /usr/share/misc/scsi_modes and the "SCSI Commands Reference Manual"
+        if [[ -z $(camcontrol modepage $1 -m 0x1a |& grep -E "^STANDBY(.*)1") ]]; then echo 1; else echo 0; fi
     fi
 }
 
