@@ -135,13 +135,28 @@ function get_idle_drives() {
 }
 
 ##
+# Determines whether the given drive $1 understands ATA commands
+#
+# Arguments:
+#   $1 Device identifier of the drive
+##
+function is_ata_drive() {
+    if [[ -z $(camcontrol identify $1 |& grep -E "^protocol(.*)ATA") ]]; then echo 1; else echo 0; fi
+}
+
+##
 # Determines whether the given drive $1 is spinning
 #
 # Arguments:
 #   $1 Device identifier of the drive
 ##
 function drive_is_spinning() {
-    if [[ -z $(camcontrol epc $1 -c status -P | grep 'Standby') ]]; then echo 1; else echo 0; fi
+    if [[ $(is_ata_drive $1) -eq 1 ]]; then
+        if [[ -z $(camcontrol epc $1 -c status -P | grep 'Standby') ]]; then echo 1; else echo 0; fi
+    else
+        # TODO
+        echo 1
+    fi
 }
 
 ##
@@ -153,7 +168,13 @@ function drive_is_spinning() {
 function spindown_drive() {
     if [[ $(drive_is_spinning $1) -eq 1 ]]; then
         if [[ $DRYRUN -eq 0 ]]; then
-            camcontrol standby $1
+            if [[ $(is_ata_drive $1) -eq 1 ]]; then
+                # Spindown ATA drive
+                camcontrol standby $1
+            else
+                # Spindown SCSI drive
+                camcontrol stop $1
+            fi
         fi
 
         log "$(date '+%F %T') Spun down idle drive: $1"
