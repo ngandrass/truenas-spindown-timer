@@ -59,6 +59,7 @@ Options:
                  a drive as idle.
   -p POLL_TIME : Number of seconds to wait for I/O during a single iostat call.
   -i DRIVE     : Ignores the given drive and never issue a spindown for it.
+                 Multiple drives can be ignores by repeating the -i switch.
   -h           : Print this help message.
 
 Example usage:
