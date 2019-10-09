@@ -35,6 +35,7 @@
 TIMEOUT=3600       # Default timeout before considering a drive as idle
 POLL_TIME=600      # Default time to wait during a single iostat call
 IGNORED_DRIVES=""  # Default list of drives that are never spun down
+MANUAL_MODE=0      # Default manual mode setting
 QUIET=0            # Default quiet mode setting
 VERBOSE=0          # Default verbosity level
 DRYRUN=0           # Default for dryrun option
@@ -44,7 +45,7 @@ DRYRUN=0           # Default for dryrun option
 ##
 function print_usage() {
     cat << EOF
-Usage: $0 [-h] [-q] [-v] [-d] [-t TIMEOUT] [-p POLL_TIME] [-i DRIVE]
+Usage: $0 [-h] [-q] [-v] [-d] [-m] [-t TIMEOUT] [-p POLL_TIME] [-i DRIVE]
 
 A drive is considered as idle and is spun down if there has been no I/O
 operations on it for at least TIMEOUT seconds. I/O requests are detected
@@ -55,16 +56,23 @@ Options:
   -q           : Quiet mode. Outputs are suppressed if flag is present.
   -v           : Verbose mode. Prints additonal information during execution.
   -d           : Dry run. No actual spindown is performed.
+  -m           : Manual mode. If this flag is set, the automatic drive detection
+                 is disabled.
+                 This inverts the -i switch which then needs to be used to supply
+                 each drive to monitor. All other drives will be ignored.
   -t TIMEOUT   : Number of seconds to wait for I/O in total before considering
                  a drive as idle.
   -p POLL_TIME : Number of seconds to wait for I/O during a single iostat call.
-  -i DRIVE     : Ignores the given drive and never issue a spindown for it.
-                 Multiple drives can be ignores by repeating the -i switch.
+  -i DRIVE     : In automatic drive detection mode (default): Ignores the given
+                 drive and never issue a spindown command for it.
+                 In manual mode [-m]: Only monitor the specified drives.
+                 Multiple drives can be given by repeating the -i switch.
   -h           : Print this help message.
 
 Example usage:
 $0
 $0 -q -t 3600 -p 600 -i ada0 -i ada1
+$0 -q -m -i ada6 -i ada7 -i da0
 EOF
 }
 
@@ -100,15 +108,20 @@ function log_verbose() {
 # Drives listed in $IGNORE_DRIVES will be excluded.
 ##
 function get_drives() {
-    local DRIVES=`iostat -x | grep -E '^(ada|da)' | awk '{printf $1 " "}'`
-    DRIVES=" ${DRIVES} " # Space padding must be kept for pattern matching
+    if [[ $MANUAL_MODE -eq 1 ]]; then
+        # In manual mode the ignored drives become the explicitly monitored drives
+        echo ${IGNORED_DRIVES}
+    else
+        local DRIVES=`iostat -x | grep -E '^(ada|da)' | awk '{printf $1 " "}'`
+        DRIVES=" ${DRIVES} " # Space padding must be kept for pattern matching
 
-    # Remove ignored drives
-    for drive in ${IGNORED_DRIVES[@]}; do
-        DRIVES=`sed "s/ ${drive} / /g" <<< ${DRIVES}`
-    done
+        # Remove ignored drives
+        for drive in ${IGNORED_DRIVES[@]}; do
+            DRIVES=`sed "s/ ${drive} / /g" <<< ${DRIVES}`
+        done
 
-    echo ${DRIVES}
+        echo ${DRIVES}
+    fi
 }
 
 ##
@@ -234,7 +247,7 @@ function main() {
 }
 
 # Parse arguments
-while getopts ":hqvdt:p:i:" opt; do
+while getopts ":hqvdmt:p:i:" opt; do
   case ${opt} in
     t ) TIMEOUT=${OPTARG}
       ;;
@@ -247,6 +260,8 @@ while getopts ":hqvdt:p:i:" opt; do
     v ) VERBOSE=1
       ;;
     d ) DRYRUN=1
+      ;;
+    m ) MANUAL_MODE=1
       ;;
     h ) print_usage; exit
       ;;
