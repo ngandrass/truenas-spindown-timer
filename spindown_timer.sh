@@ -47,6 +47,9 @@ function print_usage() {
     cat << EOF
 Usage: $0 [-h] [-q] [-v] [-d] [-m] [-t TIMEOUT] [-p POLL_TIME] [-i DRIVE]
 
+Monitors drive I/O and forces HDD spindown after a given idle period.
+Resistant to S.M.A.R.T. reads.
+
 A drive is considered as idle and is spun down if there has been no I/O
 operations on it for at least TIMEOUT seconds. I/O requests are detected
 during intervals with a length of POLL_TIME seconds. Detected reads or
