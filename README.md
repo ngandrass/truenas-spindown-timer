@@ -17,13 +17,17 @@ Currently tested on `FreeNAS-11.2-U4.1`.
   * Configurable idle timeout and poll interval
   * Support for ATA and SCSI devices
   * Per-disk idle timer / Independent spindown
+  * Automatic detection or explicit listing of drives to monitor
   * Ignoring of specific drives (e.g. SSD with system dataset)
   * Runnable via `Tasks` as `Post-Init Script`, configurable trough FreeNAS GUI
   * Allows script placement on encrypted pool
 
 ## Usage
 ```
-Usage: spindown_timer.sh [-h] [-q] [-v] [-d] [-t TIMEOUT] [-p POLL_TIME] [-i DRIVE]
+Usage: spindown_timer.sh [-h] [-q] [-v] [-d] [-m] [-t TIMEOUT] [-p POLL_TIME] [-i DRIVE]
+
+Monitors drive I/O and forces HDD spindown after a given idle period.
+Resistant to S.M.A.R.T. reads.
 
 A drive is considered as idle and is spun down if there has been no I/O
 operations on it for at least TIMEOUT seconds. I/O requests are detected
@@ -34,11 +38,17 @@ Options:
   -q           : Quiet mode. Outputs are suppressed if flag is present.
   -v           : Verbose mode. Prints additonal information during execution.
   -d           : Dry run. No actual spindown is performed.
+  -m           : Manual mode. If this flag is set, the automatic drive detection
+                 is disabled.
+                 This inverts the -i switch which then needs to be used to supply
+                 each drive to monitor. All other drives will be ignored.
   -t TIMEOUT   : Number of seconds to wait for I/O in total before considering
                  a drive as idle.
   -p POLL_TIME : Number of seconds to wait for I/O during a single iostat call.
-  -i DRIVE     : Ignores the given drive and never issue a spindown for it.
-                 Multiple drives can be ignores by repeating the -i switch.
+  -i DRIVE     : In automatic drive detection mode (default): Ignores the given
+                 drive and never issue a spindown command for it.
+                 In manual mode [-m]: Only monitor the specified drives.
+                 Multiple drives can be given by repeating the -i switch.
   -h           : Print this help message.
 ```
 
@@ -100,6 +110,27 @@ _Note: Be sure to select `Command` as `Type`_
 You can verify execution of the script either using a process manager like `htop` or simply by using the following command: `ps -aux | grep "spindown_timer.sh"`
 
 When using a delayed start keep in mind that it might take some seconds before the script availability is updated and the spindown timer is finally executed.
+
+## Advanced usage
+In the following section advanced usage scenarios are described.
+
+### Automatic drive detection vs manual mode [-m]
+In automatic mode (default) all drives of the system, excluding the ones specified using the `-i` switch, are monitored and spun down if idle.
+
+In scenarios where only a small subset of all avaliable drives should be spun down one can explicitly use the manuel mode trough supplying the `-m` flag. This disables the automatic detection of all drives. Furthermore the `-i` switch is inverted in manual mode. It then can be used to list all drives that should explicitly get monitored and spun down when idle.
+
+An example in which only the drives `ada3` and `ada6` are monitored would look like this:
+```bash
+./spindown_timer.sh -m -i ada3 -i ada6
+```
+
+It is also possible to run multiple instances of the script with independent `TIMEOUT` values for different drives. In the following example all drives expect `ada0` and `ada1` are spun down after being idle for 3600 seconds where `ada0` and `ada1` are already spun down after 600 seconds of being considered as idle:
+```bash
+./spindown_timer.sh -t 3600 -i ada0 -i ada1    # Automatic drive detection
+./spindown_timer.sh -m -t 600 -i ada0 -i ada1  # Manual mode
+```
+
+To verify the correct drive selection, a list of all drives that are being monitored by the running script instance is printed directly after starting the script (except in quiet mode [-q]).
 
 ## Bug reports and contributions
 Bug report and contributions are welcome! Feel free to open a new issue or submit a merge request :)
