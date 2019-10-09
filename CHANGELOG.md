@@ -1,5 +1,10 @@
 # Changelog
 
+# Version 1.3 (2019-10-09)
+  * Introduce manual mode [-m] to disable automatic drive detection
+  * Improve script description in print_usage() block
+  * Documentation of advanced features and usage
+
 # Version 1.2.1 (2019-09-30)
   * Add info about how to ignore multiple drives to the scripts usage description
 
