@@ -111,6 +111,21 @@ You can verify execution of the script either using a process manager like `htop
 
 When using a delayed start keep in mind that it might take some seconds before the script availability is updated and the spindown timer is finally executed.
 
+### Verify drive spindown (optional)
+It can be useful to check the current power state of a drive. This can be achieved using one of the following commands, depending on your device type.
+
+#### ATA drives
+The current power mode of an ATA drive can be checked using the command `camcontrol epc $drive -c status -P`, where `$drive` is the drive to check (e.g. `ada0`).
+
+It should return `Current power state: Standby_z(0x00)` for a spun down drive.
+
+#### SCSI drives
+The current power mode of a SCSI drive can be checked trough reading the modepage `0x1a` using the command `camcontrol modepage $drive -m 0x1a`, where `$drive` is the drive to check (e.g. `da0`).
+
+A spun down drive should be in one of the standby states `Standby_y` or `Standby_z`.
+
+A detailed description of the available SCSI modes can be found in `/usr/share/misc/scsi_modes`.
+
 ## Advanced usage
 In the following section advanced usage scenarios are described.
 
