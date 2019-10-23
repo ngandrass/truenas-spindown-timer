@@ -39,6 +39,7 @@ MANUAL_MODE=0      # Default manual mode setting
 QUIET=0            # Default quiet mode setting
 VERBOSE=0          # Default verbosity level
 DRYRUN=0           # Default for dryrun option
+declare -A DRIVES  # Associative array for detected drives
 
 ##
 # Prints the help/usage message
@@ -106,25 +107,46 @@ function log_verbose() {
 }
 
 ##
-# Retrieves a list of all connected drives (devices prefixed with "ada|da").
-#
+# Detects all connected drives and whether they are ATA or SCSI drives.
 # Drives listed in $IGNORE_DRIVES will be excluded.
+#
+# Note: This function populates the $DRIVES array directly.
 ##
-function get_drives() {
+function detect_drives() {
+    local DRIVE_IDS
+
+    # Detect relevant drives identifiers
     if [[ $MANUAL_MODE -eq 1 ]]; then
         # In manual mode the ignored drives become the explicitly monitored drives
-        echo ${IGNORED_DRIVES}
+        DRIVE_IDS=" ${IGNORED_DRIVES} "
     else
-        local DRIVES=`iostat -x | grep -E '^(ada|da)' | awk '{printf $1 " "}'`
-        DRIVES=" ${DRIVES} " # Space padding must be kept for pattern matching
+        DRIVE_IDS=`iostat -x | grep -E '^(ada|da)' | awk '{printf $1 " "}'`
+        DRIVE_IDS=" ${DRIVE_IDS} " # Space padding must be kept for pattern matching
 
         # Remove ignored drives
         for drive in ${IGNORED_DRIVES[@]}; do
-            DRIVES=`sed "s/ ${drive} / /g" <<< ${DRIVES}`
+            DRIVE_IDS=`sed "s/ ${drive} / /g" <<< ${DRIVE_IDS}`
         done
-
-        echo ${DRIVES}
     fi
+
+    # Detect protocol type (ATA or SCSI) for each drive and populate $DRIVES array
+    for drive in ${DRIVE_IDS}; do
+        if [[ -n $(camcontrol identify $drive |& grep -E "^protocol(.*)ATA") ]]; then
+            DRIVES[$drive]="ATA"
+        else
+            DRIVES[$drive]="SCSI"
+        fi
+    done
+}
+
+##
+# Retrieves the list of identifiers (e.g. "ada0") for all monitored drives.
+# Drives listed in $IGNORE_DRIVES will be excluded.
+#
+# Note: Must be run after detect_drives().
+##
+function get_drives() {
+    echo "${!DRIVES[@]}"
 }
 
 ##
@@ -158,7 +180,7 @@ function get_idle_drives() {
 #   $1 Device identifier of the drive
 ##
 function is_ata_drive() {
-    if [[ -n $(camcontrol identify $1 |& grep -E "^protocol(.*)ATA") ]]; then echo 1; else echo 0; fi
+    if [[ ${DRIVES[$1]} == "ATA" ]]; then echo 1; else echo 0; fi
 }
 
 ##
@@ -217,6 +239,12 @@ function get_drive_timeouts() {
 ##
 function main() {
     if [[ $DRYRUN -eq 1 ]]; then log "Performing a dry run..."; fi
+
+    # Initially identify drives to monitor
+    detect_drives
+    for drive in ${!DRIVES[@]}; do
+        log_verbose "Detected drive ${drive} as ${DRIVES[$drive]} device"
+    done
 
     log "Monitoring drives with a timeout of ${TIMEOUT} seconds: $(get_drives)"
     log "I/O check sample period: ${POLL_TIME} sec"
