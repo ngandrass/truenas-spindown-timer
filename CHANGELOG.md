@@ -1,5 +1,8 @@
 # Changelog
 
+# Version 1.3.1 (2019-10-24)
+  * Do drive detection at script start to fix erorrs on specific SAS controllers (LSI 9305)
+
 # Version 1.3 (2019-10-09)
   * Introduce manual mode [-m] to disable automatic drive detection
   * Improve script description in print_usage() block
