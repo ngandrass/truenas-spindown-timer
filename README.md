@@ -10,7 +10,7 @@ therefore enables users to have S.M.A.R.T. reporting turned on while still being
 automatically spin down disks. The script also is immune to the periodic disk temperature
 reads in newer versions of FreeNAS.
 
-Currently tested on `FreeNAS-11.2-U4.1`.
+Currently tested on: `FreeNAS-11.2-U7`.
 
 ## Key Features
   * Periodic S.M.A.R.T. reads don't reset the idle timers
