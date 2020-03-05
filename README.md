@@ -81,6 +81,10 @@ executes `spindown_timer.sh` after boot.
 
 _Note: Be sure to select `Command` as `Type`_
 
+_Note: With FreeNAS-11.3 a `Timeout` was introduced. However, the spindown script is never
+terminated by FreeNAS, regardless of the configured value. Therefore, keep `Timeout` at the
+default value of 10 seconds for now._
+
 #### Delayed start (i.e. script placed in encrypted pool)
 If you've placed the script at a location that is not available right after boot a delayed start
 of the spindown timer is required. This for example applies to situations where the script is
@@ -105,6 +109,10 @@ seconds.
 ![Spindown timer delayed post init task](screenshots/task-delayed-oneliner.png)
 
 _Note: Be sure to select `Command` as `Type`_
+
+_Note: With FreeNAS-11.3 a `Timeout` was introduced. However, the spindown script is never
+terminated by FreeNAS, regardless of the configured value. Therefore, keep `Timeout` at the
+default value of 10 seconds for now._
 
 #### Verify autostart
 You can verify execution of the script either using a process manager like `htop` or simply by using the following command: `ps -aux | grep "spindown_timer.sh"`
