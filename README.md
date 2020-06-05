@@ -155,6 +155,13 @@ It is also possible to run multiple instances of the script with independent `TI
 
 To verify the correct drive selection, a list of all drives that are being monitored by the running script instance is printed directly after starting the script (except in quiet mode [-q]).
 
+## Warning
+Heavily spinning disk drives up and down increases disk wear. Before deploying this script, consider carefully which of your drives are frequently accessed and should therefore not be aggressively spun down. A good rule of thumb is to keep disk spin-ups below 5 per 24 hours. You can keep an eye on your drives `Load_Cycle_Count` and `Start_Stop_Count` S.M.A.R.T values to monitor the number of performed spin-ups.
+
+**Please do not spin down your drives in an enterprise environment. Only consider using this technique with small NAS setups which idle most time of the day and select a timeout value appropriate to your usage behavior.**
+
+Another useful scenario i.e. is spinning down drives that are only used once a day (e.g. for mirroring of files or backups).
+
 ## Bug reports and contributions
 Bug report and contributions are welcome! Feel free to open a new issue or submit a merge request :)
 
