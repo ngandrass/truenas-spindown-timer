@@ -1,14 +1,16 @@
 # freenas-spindown-timer
 _Monitors drive I/O and forces HDD spindown after a given idle period. Resistant to S.M.A.R.T. reads._
 
-Disk spindown has always been an issue for various FreeNAS users. This script utilizes `iostat` to
-detect I/O operations (reads, writes) on each disk. If a disk didn't receive reads or writes for a
-given period of time it is considered idle and gets spun down.
+Disk spindown has always been an issue for various FreeNAS / TrueNAS users. This
+script utilizes `iostat` to detect I/O operations (reads, writes) on each disk.
+If a disk didn't receive reads or writes for a given period of time it is
+considered idle and gets spun down.
 
-This *excludes* periodic reads of S.M.A.R.T. data performed by the smartctl service which
-therefore enables users to have S.M.A.R.T. reporting turned on while still being able to
-automatically spin down disks. The script also is immune to the periodic disk temperature
-reads in newer versions of FreeNAS.
+This *excludes* periodic reads of S.M.A.R.T. data performed by the smartctl
+service which therefore enables users to have S.M.A.R.T. reporting turned on
+while still being able to automatically spin down disks. The script also is
+immune to the periodic disk temperature reads in newer versions of FreeNAS /
+TrueNAS.
 
 Currently successfully tested on: `FreeNAS-11.3-U4.1` and `FreeNAS-11.2-U7`.
 
@@ -19,7 +21,8 @@ Currently successfully tested on: `FreeNAS-11.3-U4.1` and `FreeNAS-11.2-U7`.
   * Per-disk idle timer / Independent spindown
   * Automatic detection or explicit listing of drives to monitor
   * Ignoring of specific drives (e.g. SSD with system dataset)
-  * Runnable via `Tasks` as `Post-Init Script`, configurable trough FreeNAS GUI
+  * Runnable via `Tasks` as `Post-Init Script`, configurable trough FreeNAS /
+    TrueNAS GUI
   * Allows script placement on encrypted pool
 
 ## Usage
@@ -53,7 +56,8 @@ Options:
 ```
 
 ## Deployment and configuration
-The following steps describe how to configure FreeNAS and setup the script.
+The following steps describe how to configure FreeNAS / TrueNAS and setup the
+script.
 
 ### Configure disk-standby aware S.M.A.R.T.
 To prevent the smartctl daemon from waking up already spun down disks open the FreeNAS
