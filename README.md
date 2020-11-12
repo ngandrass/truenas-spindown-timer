@@ -178,4 +178,8 @@ My work helped you in some way or you just like it? Awesome!
 
 If you want to support me you can consider buying me a cofee/tea/mate. Thank You! <3
 
+<a href="https://paypal.me/ngandrass">
+  <img src="https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png" width="220px" alt="Donate with PayPal" />
+</a>
+
 [![ko-fi.com/ngandrass](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A0A3XX87)
