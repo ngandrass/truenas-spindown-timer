@@ -70,6 +70,8 @@ Set `Power Mode` to `Standby` and save changes:
 
 ![Power mode dropdown](screenshots/smart-service-power-mode.png)
 
+In recent versions of TrueNAS, this setting moved to `Storage > Disks > (select a disk) > Force HDD Standby` for each disk individually.
+
 ### Deploy script
 Copy the script to your NAS and set the execute permission trough `chmod +x spindown_timer.sh`.
 
