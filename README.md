@@ -60,15 +60,19 @@ Options:
 The following steps describe how to configure FreeNAS / TrueNAS and setup the
 script.
 
-### Configure disk-standby aware S.M.A.R.T.
-To prevent the smartctl daemon from waking up already spun down disks open the FreeNAS
-GUI and navigate to `Services > S.M.A.R.T. > Configure`:
+### Configure disk standby settings
+To prevent the smartctl daemon or TrueNAS from interfering with spun down disks
+open the TrueNAS GUI and navigate to `Storage > Disks`.
 
-![S.M.A.R.T. configuration button](screenshots/smart-service-conf-btn.png)
+For every disk that you would like to spin down click the `Edit` button. Then
+set the `HDD Standby` option to `Always On` and `Advanced Power Management` to
+level 128 or above. 
 
-Set `Power Mode` to `Standby` and save changes:
+![HDD standby settings](screenshots/disk-spindown-config.png)
 
-![Power mode dropdown](screenshots/smart-service-power-mode.png)
+_Note: In older versions of TrueNAS/FreeNAS, it was required to set the
+S.M.A.R.T `Power Mode` to `Standby`. This setting was configured globally and
+was located under `Services > S.M.A.R.T. > Configure`._
 
 ### Deploy script
 Copy the script to your NAS and set the execute permission trough `chmod +x spindown_timer.sh`.
