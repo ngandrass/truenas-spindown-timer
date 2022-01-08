@@ -39,6 +39,7 @@ MANUAL_MODE=0      # Default manual mode setting
 QUIET=0            # Default quiet mode setting
 VERBOSE=0          # Default verbosity level
 DRYRUN=0           # Default for dryrun option
+SHUTDOWN_TIMEOUT=0 # Default shutdown timeout (0 == no shutdown)
 declare -A DRIVES  # Associative array for detected drives
 
 ##
@@ -71,6 +72,8 @@ Options:
                  drive and never issue a spindown command for it.
                  In manual mode [-m]: Only monitor the specified drives.
                  Multiple drives can be given by repeating the -i switch.
+  -s TIMEOUT   : Shutdown timeout, if no drive is active for TIMEOUT seconds, 
+                 the system will be shut down 
   -h           : Print this help message.
 
 Example usage:
@@ -174,6 +177,26 @@ function get_idle_drives() {
 }
 
 ##
+# Checks if all not ignored drives are idle.
+#
+# returns 0 if all drives are idle, 1 if at least one drive is spinning
+#
+# Arguments:
+#   $1 list of idle drives as returned by get_idle_drives()
+##
+function all_drives_idle() {
+    local DRIVES=" $(get_drives) "
+    
+    for drive in ${DRIVES}; do
+        if [[ ! $1 =~ $drive ]]; then
+            return 1
+        fi
+    done
+
+    return 0
+}
+
+##
 # Determines whether the given drive $1 understands ATA commands
 #
 # Arguments:
@@ -248,6 +271,10 @@ function main() {
 
     log "Monitoring drives with a timeout of ${TIMEOUT} seconds: $(get_drives)"
     log "I/O check sample period: ${POLL_TIME} sec"
+    
+    if [ ${SHUTDOWN_TIMEOUT} -gt 0 ]; then
+        log "Shuting down system after ${SHUTDOWN_TIMEOUT} seconds of inactivity"
+    fi
 
     # Init timeout counters for all monitored drives
     declare -A DRIVE_TIMEOUTS
@@ -255,6 +282,9 @@ function main() {
         DRIVE_TIMEOUTS[$drive]=${TIMEOUT}
     done
     log_verbose "$(get_drive_timeouts)"
+    
+    # Init shutdown counter
+    SHUTDOWN_COUNTER=${SHUTDOWN_TIMEOUT}
 
     # Drive I/O monitoring loop
     while true; do
@@ -274,17 +304,33 @@ function main() {
         done
 
         log_verbose "$(get_drive_timeouts)"
+        
+        if [ ${SHUTDOWN_TIMEOUT} -gt 0 ]; then
+            if all_drives_idle "${IDLE_DRIVES}"; then
+                SHUTDOWN_COUNTER=$((SHUTDOWN_COUNTER - POLL_TIME))
+                if [[ ! ${SHUTDOWN_COUNTER} -gt 0 ]]; then
+                    log_verbose "Shutting down system"
+                    shutdown -p now
+                fi
+            else
+                SHUTDOWN_COUNTER=${SHUTDOWN_TIMEOUT}
+            fi
+            log_verbose "Shutdwon timeout: ${SHUTDOWN_COUNTER}"
+        fi
+
     done
 }
 
 # Parse arguments
-while getopts ":hqvdmt:p:i:" opt; do
+while getopts ":hqvdmt:p:i:s:" opt; do
   case ${opt} in
     t ) TIMEOUT=${OPTARG}
       ;;
     p ) POLL_TIME=${OPTARG}
       ;;
     i ) IGNORED_DRIVES="$IGNORED_DRIVES ${OPTARG}"
+      ;;
+    s ) SHUTDOWN_TIMEOUT=${OPTARG}
       ;;
     q ) QUIET=1
       ;;
