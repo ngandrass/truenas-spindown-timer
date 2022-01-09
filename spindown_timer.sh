@@ -273,7 +273,7 @@ function main() {
     log "I/O check sample period: ${POLL_TIME} sec"
     
     if [ ${SHUTDOWN_TIMEOUT} -gt 0 ]; then
-        log "Shuting down system after ${SHUTDOWN_TIMEOUT} seconds of inactivity"
+        log "System will be shut down after ${SHUTDOWN_TIMEOUT} seconds of inactivity"
     fi
 
     # Init timeout counters for all monitored drives
@@ -315,7 +315,7 @@ function main() {
             else
                 SHUTDOWN_COUNTER=${SHUTDOWN_TIMEOUT}
             fi
-            log_verbose "Shutdwon timeout: ${SHUTDOWN_COUNTER}"
+            log_verbose "Shutdown timeout: ${SHUTDOWN_COUNTER}"
         fi
 
     done
