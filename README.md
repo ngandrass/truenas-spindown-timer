@@ -166,6 +166,15 @@ It is also possible to run multiple instances of the script with independent `TI
 
 To verify the correct drive selection, a list of all drives that are being monitored by the running script instance is printed directly after starting the script (except in quiet mode [-q]).
 
+### Automatic system shutdown [-s TIMEOUT]
+When a timeout is given via the `-s` argument, the system will be shut down by
+the script if all monitored drives were idle for the specified number of
+seconds. This feature can be used to automatically shut down a system that might
+be woken via wake-on-LAN (WOL) later on.
+
+Setting `TIMEOUT` to 0 results in no shutdown.
+
+
 ## Warning
 Heavily spinning disk drives up and down increases disk wear. Before deploying this script, consider carefully which of your drives are frequently accessed and should therefore not be aggressively spun down. A good rule of thumb is to keep disk spin-ups below 5 per 24 hours. You can keep an eye on your drives `Load_Cycle_Count` and `Start_Stop_Count` S.M.A.R.T values to monitor the number of performed spin-ups.
 
