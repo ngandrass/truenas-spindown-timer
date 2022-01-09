@@ -28,7 +28,7 @@ and `FreeNAS-11.2-U7`.
 
 ## Usage
 ```
-Usage: spindown_timer.sh [-h] [-q] [-v] [-d] [-m] [-t TIMEOUT] [-p POLL_TIME] [-i DRIVE]
+Usage: spindown_timer.sh [-h] [-q] [-v] [-d] [-m] [-t TIMEOUT] [-p POLL_TIME] [-i DRIVE]  [-s TIMEOUT]
 
 Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
@@ -53,6 +53,8 @@ Options:
                  drive and never issue a spindown command for it.
                  In manual mode [-m]: Only monitor the specified drives.
                  Multiple drives can be given by repeating the -i switch.
+  -s TIMEOUT   : Shutdown timeout, if no drive is active for TIMEOUT seconds, 
+                 the system will be shut down 
   -h           : Print this help message.
 ```
 
