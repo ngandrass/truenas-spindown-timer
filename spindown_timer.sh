@@ -184,7 +184,7 @@ function get_idle_drives() {
 # Arguments:
 #   $1 list of idle drives as returned by get_idle_drives()
 ##
-function all_drives_idle() {
+function all_drives_are_idle() {
     local DRIVES=" $(get_drives) "
     
     for drive in ${DRIVES}; do
@@ -306,7 +306,7 @@ function main() {
         log_verbose "$(get_drive_timeouts)"
         
         if [ ${SHUTDOWN_TIMEOUT} -gt 0 ]; then
-            if all_drives_idle "${IDLE_DRIVES}"; then
+            if all_drives_are_idle "${IDLE_DRIVES}"; then
                 SHUTDOWN_COUNTER=$((SHUTDOWN_COUNTER - POLL_TIME))
                 if [[ ! ${SHUTDOWN_COUNTER} -gt 0 ]]; then
                     log_verbose "Shutting down system"
