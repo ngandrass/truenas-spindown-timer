@@ -4,12 +4,12 @@
 # Waits until the script file $1 becomes available and starts
 # it with the given additional arguments ($2, $3, $4, ...)
 #
-# See: https://github.com/ngandrass/freenas-spindown-timer
+# See: https://github.com/ngandrass/truenas-spindown-timer
 #
 #
 # MIT License
 # 
-# Copyright (c) 2019 Niels Gandraß
+# Copyright (c) 2022 Niels Gandraß
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
