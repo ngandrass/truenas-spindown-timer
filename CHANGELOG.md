@@ -1,5 +1,8 @@
 # Changelog
 
+# Version 1.3.2 (2022-01-10)
+  * Include an option to shutdown the system after all monitored drives are idle for a specified number of seconds
+
 # Version 1.3.1 (2019-10-24)
   * Do drive detection at script start to fix erorrs on specific SAS controllers (LSI 9305)
 
