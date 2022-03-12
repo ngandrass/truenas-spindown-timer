@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
 # ##################################################
-# FreeNAS HDD Spindown Timer
+# TrueNAS HDD Spindown Timer
 # Monitors drive I/O and forces HDD spindown after a given idle period.
 #
 # Version: 1.3.2
 #
-# See: https://github.com/ngandrass/freenas-spindown-timer
+# See: https://github.com/ngandrass/truenas-spindown-timer
 #
 #
 # MIT License
@@ -47,7 +47,7 @@ declare -A DRIVES  # Associative array for detected drives
 ##
 function print_usage() {
     cat << EOF
-Usage: $0 [-h] [-q] [-v] [-d] [-m] [-t TIMEOUT] [-p POLL_TIME] [-i DRIVE]
+Usage: $0 [-h] [-q] [-v] [-d] [-m] [-t TIMEOUT] [-p POLL_TIME] [-i DRIVE] [-s TIMEOUT]
 
 Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
