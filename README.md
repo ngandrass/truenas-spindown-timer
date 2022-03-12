@@ -12,8 +12,14 @@ excluded. This allows users to have S.M.A.R.T. reporting enabled while still
 being able to automatically spin down disks. The script moreover is immune to
 the periodic disk temperature reads in newer versions of TrueNAS.
 
-Successfully tested on: `TrueNAS-12.0-U7 (Core)`, `FreeNAS-11.3-U5`, and
-`FreeNAS-11.2-U7`.
+Successfully tested on:
+  * `TrueNAS-12.0-U8 (Core)`
+  * `TrueNAS-12.0 (Core)`
+  * `FreeNAS-11.3`
+  * `FreeNAS-11.2`
+
+A full list of all tested TrueNAS / FreeNAS versions can be found at the end of
+this file.
 
 
 ## Key Features
@@ -227,6 +233,32 @@ seconds. This feature can be used to automatically shut down a system that might
 be woken via wake-on-LAN (WOL) later on.
 
 Setting `TIMEOUT` to 0 results in no shutdown.
+
+
+## Tested TrueNAS / FreeNAS versions
+
+This script was successfully tested on the following OS versions:
+
+* `TrueNAS-12.0-U8 (Core)`
+* `TrueNAS-12.0-U7 (Core)`
+* `TrueNAS-12.0-U6.1 (Core)`
+* `TrueNAS-12.0-U6 (Core)`
+* `TrueNAS-12.0-U5.1 (Core)`
+* `TrueNAS-12.0-U5 (Core)`
+* `TrueNAS-12.0-U3.1 (Core)`
+* `TrueNAS-12.0-U1.1 (Core)`
+* `TrueNAS-12.0-U1 (Core)`
+* `TrueNAS-12.0 (Core)`
+* `FreeNAS-11.3-U5`
+* `FreeNAS-11.3-U4.1`
+* `FreeNAS-11.3-U3.2`
+* `FreeNAS-11.3-U3.1`
+* `FreeNAS-11.3`
+* `FreeNAS-11.2-U7`
+* `FreeNAS-11.2-U4.1`
+
+_Intermediate OS versions not listed here have not been explicitly tested, but
+the script will most likely be compatible._
 
 
 ## Warning
