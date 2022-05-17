@@ -13,7 +13,7 @@ being able to automatically spin down disks. The script moreover is immune to
 the periodic disk temperature reads in newer versions of TrueNAS.
 
 Successfully tested on:
-  * `TrueNAS-12.0-U8 (Core)`
+  * `TrueNAS-12.0-U8.1 (Core)`
   * `TrueNAS-12.0 (Core)`
   * `FreeNAS-11.3`
   * `FreeNAS-11.2`
