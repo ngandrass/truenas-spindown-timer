@@ -207,7 +207,7 @@ function get_idle_drives() {
         "camcontrol")
             local CUT_OFFSET=`grep -no "extended device statistics" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+'` ;;
         "hdparm")
-            local CUT_OFFSET=`grep -m2 -no "Drive" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+'` ;;
+            local CUT_OFFSET=`grep -no "Device" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+'` ;;
     esac
     local ACTIVE_DRIVES=`tail -n +$((CUT_OFFSET+2)) <<< ${IOSTAT_OUTPUT} | awk '{printf $1}{printf " "}'`
 
