@@ -32,15 +32,16 @@
 # SOFTWARE.
 # ##################################################
 
-TIMEOUT=3600       # Default timeout before considering a drive as idle
-POLL_TIME=600      # Default time to wait during a single iostat call
-IGNORED_DRIVES=""  # Default list of drives that are never spun down
-MANUAL_MODE=0      # Default manual mode setting
-QUIET=0            # Default quiet mode setting
-VERBOSE=0          # Default verbosity level
-DRYRUN=0           # Default for dryrun option
-SHUTDOWN_TIMEOUT=0 # Default shutdown timeout (0 == no shutdown)
-declare -A DRIVES  # Associative array for detected drives
+TIMEOUT=3600               # Default timeout before considering a drive as idle
+POLL_TIME=600              # Default time to wait during a single iostat call
+IGNORED_DRIVES=""          # Default list of drives that are never spun down
+MANUAL_MODE=0              # Default manual mode setting
+QUIET=0                    # Default quiet mode setting
+VERBOSE=0                  # Default verbosity level
+DRYRUN=0                   # Default for dryrun option
+SHUTDOWN_TIMEOUT=0         # Default shutdown timeout (0 == no shutdown)
+declare -A DRIVES          # Associative array for detected drives
+DISK_PARM_TOOL=camcontrol  # Default disk parameter tool to use (camcontrol OR hdparm)
 
 ##
 # Prints the help/usage message
@@ -120,6 +121,28 @@ function log_error() {
 }
 
 ##
+# Determines which tool to access disk parameters is available. This
+# differentiates between TrueNAS Core and TrueNAS SCALE.
+#
+# Return: Command to use to access disk parameters
+#
+##
+function detect_disk_parm_tool() {
+    local SUPPORTED_DISK_PARM_TOOLS
+    SUPPORTED_DISK_PARM_TOOLS="camcontrol hdparm"
+
+    for tool in ${SUPPORTED_DISK_PARM_TOOLS}; do
+        if [[ -n $(which ${tool}) ]]; then
+            echo "${tool}"
+            return
+        fi
+    done
+
+    log_error "No supported disk parameter tool found."
+    exit 1
+}
+
+##
 # Detects all connected drives and whether they are ATA or SCSI drives.
 # Drives listed in $IGNORE_DRIVES will be excluded.
 #
@@ -133,7 +156,7 @@ function detect_drives() {
         # In manual mode the ignored drives become the explicitly monitored drives
         DRIVE_IDS=" ${IGNORED_DRIVES} "
     else
-        DRIVE_IDS=`iostat -x | grep -E '^(ada|da)' | awk '{printf $1 " "}'`
+        DRIVE_IDS=`iostat -x | grep -E '^(ada|da|sd)' | awk '{printf $1 " "}'`
         DRIVE_IDS=" ${DRIVE_IDS} " # Space padding must be kept for pattern matching
 
         # Remove ignored drives
@@ -143,8 +166,14 @@ function detect_drives() {
     fi
 
     # Detect protocol type (ATA or SCSI) for each drive and populate $DRIVES array
+    local DISK_IS_ATA
     for drive in ${DRIVE_IDS}; do
-        if [[ -n $(camcontrol identify $drive |& grep -E "^protocol(.*)ATA") ]]; then
+        case $DISK_PARM_TOOL in
+            "camcontrol") DISK_IS_ATA=$(camcontrol identify $drive |& grep -E "^protocol(.*)ATA");;
+            "hdparm") DISK_IS_ATA=$(hdparm -I /dev/$drive |& grep -E "^ATA device");;
+        esac
+
+        if [[ -n $DISK_IS_ATA ]]; then
             DRIVES[$drive]="ATA"
         else
             DRIVES[$drive]="SCSI"
@@ -174,7 +203,12 @@ function get_drives() {
 function get_idle_drives() {
     # Wait for $1 seconds and get active drives
     local IOSTAT_OUTPUT=`iostat -x -z -d $1 2`
-    local CUT_OFFSET=`grep -no "extended device statistics" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+'`
+    case $DISK_PARM_TOOL in
+        "camcontrol")
+            local CUT_OFFSET=`grep -no "extended device statistics" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+'` ;;
+        "hdparm")
+            local CUT_OFFSET=`grep -m2 -no "Drive" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+'` ;;
+    esac
     local ACTIVE_DRIVES=`tail -n +$((CUT_OFFSET+2)) <<< ${IOSTAT_OUTPUT} | awk '{printf $1}{printf " "}'`
 
     # Remove active drives from list to get idle drives
@@ -223,15 +257,24 @@ function is_ata_drive() {
 #   $1 Device identifier of the drive
 ##
 function drive_is_spinning() {
-    if [[ $(is_ata_drive $1) -eq 1 ]]; then
-        if [[ -z $(camcontrol epc $1 -c status -P | grep 'Standby') ]]; then echo 1; else echo 0; fi
-    else
-        # Reads STANDBY values from the power condition mode page (0x1a).
-        # THIS IS EXPERIMENTAL AND UNTESTED due to the lack of SCSI drives :(
-        #
-        # See: /usr/share/misc/scsi_modes and the "SCSI Commands Reference Manual"
-        if [[ -z $(camcontrol modepage $1 -m 0x1a |& grep -E "^STANDBY(.*)1") ]]; then echo 1; else echo 0; fi
-    fi
+    case $DISK_PARM_TOOL in
+        "camcontrol")
+            # camcontrol differentiates between ATA and SCSI drives
+            if [[ $(is_ata_drive $1) -eq 1 ]]; then
+                if [[ -z $(camcontrol epc $1 -c status -P | grep 'Standby') ]]; then echo 1; else echo 0; fi
+            else
+                # Reads STANDBY values from the power condition mode page (0x1a).
+                # THIS IS EXPERIMENTAL AND UNTESTED due to the lack of SCSI drives :(
+                #
+                # See: /usr/share/misc/scsi_modes and the "SCSI Commands Reference Manual"
+                if [[ -z $(camcontrol modepage $1 -m 0x1a |& grep -E "^STANDBY(.*)1") ]]; then echo 1; else echo 0; fi
+            fi
+        ;;
+        "hdparm")
+            # It is currently unknown if hdparm also needs to differentiates between ATA and SCSI drives
+            if [[ -z $(hdparm -C $1 | grep 'standby') ]]; then echo 1; else echo 0; fi
+        ;;
+    esac
 }
 
 ##
@@ -243,13 +286,20 @@ function drive_is_spinning() {
 function spindown_drive() {
     if [[ $(drive_is_spinning $1) -eq 1 ]]; then
         if [[ $DRYRUN -eq 0 ]]; then
-            if [[ $(is_ata_drive $1) -eq 1 ]]; then
-                # Spindown ATA drive
-                camcontrol standby $1
-            else
-                # Spindown SCSI drive
-                camcontrol stop $1
-            fi
+            case $DISK_PARM_TOOL in
+                "camcontrol")
+                    if [[ $(is_ata_drive $1) -eq 1 ]]; then
+                        # Spindown ATA drive
+                        camcontrol standby $1
+                    else
+                        # Spindown SCSI drive
+                        camcontrol stop $1
+                    fi
+                ;;
+                "hdparm")
+                    hdparm -y $1
+                ;;
+            esac
         fi
 
         log "$(date '+%F %T') Spun down idle drive: $1"
@@ -272,6 +322,11 @@ function get_drive_timeouts() {
 ##
 function main() {
     if [[ $DRYRUN -eq 1 ]]; then log "Performing a dry run..."; fi
+
+    # Determine disk parameter tool to use
+    # (Differentiates between TrueNaS Core and TrueNAs SCALE)
+    DISK_PARM_TOOL=$(detect_disk_parm_tool)
+    log_verbose "Using disk parameter tool: ${DISK_PARM_TOOL}"
 
     # Initially identify drives to monitor
     detect_drives
