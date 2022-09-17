@@ -110,6 +110,16 @@ function log_verbose() {
 }
 
 ##
+# Writes argument $1 to stderr. Ignores $QUIET.
+#
+# Arguments:
+#   $1 Message to write to stderr
+##
+function log_error() {
+    >&2 echo "[ERROR]: $1"
+}
+
+##
 # Detects all connected drives and whether they are ATA or SCSI drives.
 # Drives listed in $IGNORE_DRIVES will be excluded.
 #
