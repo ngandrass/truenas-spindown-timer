@@ -4,7 +4,7 @@
 # TrueNAS HDD Spindown Timer
 # Monitors drive I/O and forces HDD spindown after a given idle period.
 #
-# Version: 2.0.0
+# Version: 2.0.1
 #
 # See: https://github.com/ngandrass/truenas-spindown-timer
 #
