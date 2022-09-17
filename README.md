@@ -12,11 +12,11 @@ excluded. This allows users to have S.M.A.R.T. reporting enabled while still
 being able to automatically spin down disks. The script moreover is immune to
 the periodic disk temperature reads in newer versions of TrueNAS.
 
-Successfully tested on:
-  * `TrueNAS-12.0-U8.1 (Core)`
+Successfully tested on (most relevant):
+  * **`TrueNAS-12.0-U8.1 (Core)`**
+  * **`TrueNAS SCALE 22.02.3`**
   * `TrueNAS-12.0 (Core)`
   * `FreeNAS-11.3`
-  * `FreeNAS-11.2`
 
 A full list of all tested TrueNAS / FreeNAS versions can be found at the end of
 this file.
@@ -27,6 +27,7 @@ this file.
   * Periodic S.M.A.R.T. reads do not reset the disk idle timers
   * Configurable idle timeout and poll interval
   * Support for ATA and SCSI devices
+  * Works with both TrueNAS Core and TrueNAS SCALE
   * Per-disk idle timer / Independent spindown
   * Automatic detection or explicit listing of drives to monitor
   * Ignoring of specific drives (e.g. SSD with system dataset)
@@ -239,6 +240,7 @@ Setting `TIMEOUT` to 0 results in no shutdown.
 
 This script was successfully tested on the following OS versions:
 
+### TrueNAS (Core)
 * `TrueNAS-12.0-U8 (Core)`
 * `TrueNAS-12.0-U7 (Core)`
 * `TrueNAS-12.0-U6.1 (Core)`
@@ -256,6 +258,9 @@ This script was successfully tested on the following OS versions:
 * `FreeNAS-11.3`
 * `FreeNAS-11.2-U7`
 * `FreeNAS-11.2-U4.1`
+
+### TrueNAS SCALE
+* `TrueNAS SCALE 22.02.3`
 
 _Intermediate OS versions not listed here have not been explicitly tested, but
 the script will most likely be compatible._
