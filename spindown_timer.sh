@@ -170,7 +170,7 @@ function detect_drives() {
     for drive in ${DRIVE_IDS}; do
         case $DISK_PARM_TOOL in
             "camcontrol") DISK_IS_ATA=$(camcontrol identify $drive |& grep -E "^protocol(.*)ATA");;
-            "hdparm") DISK_IS_ATA=$(hdparm -I /dev/$drive |& grep -E "^ATA device");;
+            "hdparm") DISK_IS_ATA=$(hdparm -I "/dev/$drive" |& grep -E "^ATA device");;
         esac
 
         if [[ -n $DISK_IS_ATA ]]; then
@@ -272,7 +272,7 @@ function drive_is_spinning() {
         ;;
         "hdparm")
             # It is currently unknown if hdparm also needs to differentiates between ATA and SCSI drives
-            if [[ -z $(hdparm -C $1 | grep 'standby') ]]; then echo 1; else echo 0; fi
+            if [[ -z $(hdparm -C "/dev/$1" | grep 'standby') ]]; then echo 1; else echo 0; fi
         ;;
     esac
 }
@@ -297,7 +297,7 @@ function spindown_drive() {
                     fi
                 ;;
                 "hdparm")
-                    hdparm -y $1
+                    hdparm -q -y "/dev/$1"
                 ;;
             esac
         fi
