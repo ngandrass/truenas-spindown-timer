@@ -90,6 +90,18 @@ Mode` to `Standby`. This setting was configured globally and was located under
 `Services > S.M.A.R.T. > Configure`._
 
 
+### System dataset placement
+
+Having the TrueNAS system dataset placed inside a pool prevents the spindown of
+contained disks. Therefore it should be located on a disk that will not be spun
+down (e.g. the OS SSD).
+
+The location of the system dataset can be configured under `System > System
+Dataset`.
+
+![System Dataset settings](screenshots/system-dataset.png)
+
+
 ### Deploy script
 
 Copy the script to your NAS box and set the execution permission through `chmod
