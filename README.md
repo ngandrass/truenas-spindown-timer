@@ -222,20 +222,30 @@ this:
 ./spindown_timer.sh -m -i ada3 -i ada6
 ```
 
-It is also possible to run multiple instances of the script with independent
-`TIMEOUT` values for different drives. In the following example, all drives
-except `ada0` and `ada1` are spun down after being idle for 3600 seconds. The
-drives `ada0` and `ada1` are instead already spun down after 600 seconds of
-being considered as idle:
+To verify the drive selection, a list of all drives that are being monitored by
+the running script instance is printed directly after starting the script
+(except in quiet mode [-q]).
+
+
+### Using separate timeouts for different drives
+
+It is possible to run multiple instances of the spindown timer script with
+independent `TIMEOUT` values for different drives simultaneously. Just make sure
+that the sets of monitored drives are distinct, i.e., each drive is managed by
+only one instance of the spindown timer script.
+
+In the following example, all drives except `ada0` and `ada1` are spun down
+after being idle for 3600 seconds. The drives `ada0` and `ada1` are instead
+already spun down after 600 seconds of being idle:
 
 ```bash
 ./spindown_timer.sh -t 3600 -i ada0 -i ada1    # Automatic drive detection
 ./spindown_timer.sh -m -t 600 -i ada0 -i ada1  # Manual mode
 ```
 
-To verify the drive selection, a list of all drives that are being monitored by
-the running script instance is printed directly after starting the script
-(except in quiet mode [-q]).
+To start all required spindown timer instances you can simply create multiple
+`Post Init Scripts`, as described above in the Section [Automatic start at
+boot](#automatic-start-at-boot).
 
 
 ### Automatic system shutdown [-s TIMEOUT]
