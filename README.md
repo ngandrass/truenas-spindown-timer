@@ -51,7 +51,7 @@ writes reset the drives timer back to TIMEOUT.
 
 Options:
   -q           : Quiet mode. Outputs are suppressed if flag is present.
-  -v           : Verbose mode. Prints additonal information during execution.
+  -v           : Verbose mode. Prints additional information during execution.
   -d           : Dry run. No actual spindown is performed.
   -m           : Manual mode. If this flag is set, the automatic drive detection
                  is disabled.
