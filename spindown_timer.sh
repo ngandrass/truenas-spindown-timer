@@ -41,11 +41,18 @@ VERBOSE=0                  # Default verbosity level
 DRYRUN=0                   # Default for dryrun option
 SHUTDOWN_TIMEOUT=0         # Default shutdown timeout (0 == no shutdown)
 declare -A DRIVES          # Associative array for detected drives
+declare -A ZFSPOOLS        # Array for monitored ZFS pools
+declare -A DRIVES_BY_POOLS # Associative array mapping of pool names to list of disk identifiers (e.g. poolname => "ada0 ada1 ada2")
+declare -A GPTID_TO_DISKID # Associative array with GPTID to disk device identifier
 DISK_PARM_TOOL=camcontrol  # Default disk parameter tool to use (camcontrol OR hdparm)
+OPERATION_MODE=disk        # Default operation mode (disk or zpool)
 
 ##
 # Prints the help/usage message
 ##
+# TODO: Update argument list
+# TODO: Update description and examples
+# TODO: Pretty formatting
 function print_usage() {
     cat << EOF
 Usage: $0 [-h] [-q] [-v] [-d] [-m] [-t TIMEOUT] [-p POLL_TIME] [-i DRIVE] [-s TIMEOUT]
@@ -323,6 +330,13 @@ function get_drive_timeouts() {
 function main() {
     if [[ $DRYRUN -eq 1 ]]; then log "Performing a dry run..."; fi
 
+    # Verify operation mode
+    if [ "$OPERATION_MODE" != "disk" ] && [ "$OPERATION_MODE" != "zpool" ]; then
+        log_error "Invalid operation mode: $OPERATION_MODE. Must be either 'disk' or 'zpool'."
+        exit 1
+    fi
+    log_verbose "Operation mode: $OPERATION_MODE"
+
     # Determine disk parameter tool to use
     # (Differentiates between TrueNaS Core and TrueNAs SCALE)
     DISK_PARM_TOOL=$(detect_disk_parm_tool)
@@ -387,7 +401,7 @@ function main() {
 }
 
 # Parse arguments
-while getopts ":hqvdmt:p:i:s:" opt; do
+while getopts ":hqvdmt:p:i:s:u:" opt; do
   case ${opt} in
     t ) TIMEOUT=${OPTARG}
       ;;
@@ -404,6 +418,8 @@ while getopts ":hqvdmt:p:i:s:" opt; do
     d ) DRYRUN=1
       ;;
     m ) MANUAL_MODE=1
+      ;;
+    u ) OPERATION_MODE=${OPTARG}
       ;;
     h ) print_usage; exit
       ;;
