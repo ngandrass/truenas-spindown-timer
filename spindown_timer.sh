@@ -32,6 +32,8 @@
 # SOFTWARE.
 # ##################################################
 
+# TODO: Add zpool operation mode to README and update all areas that changed
+
 TIMEOUT=3600               # Default timeout before considering a drive as idle
 POLL_TIME=600              # Default time to wait during a single iostat call
 IGNORED_DRIVES=""          # Default list of drives that are never spun down
@@ -150,12 +152,62 @@ function detect_disk_parm_tool() {
 }
 
 ##
-# Detects all connected drives and whether they are ATA or SCSI drives.
-# Drives listed in $IGNORE_DRIVES will be excluded.
+# Populates the GPTID_TO_DISKID associative array. GPTIDs are used as keys.
+#
+function populate_gptid_to_diskid_array() {
+    # Create mapping
+    while read -r row; do
+        local gptid=$(echo "$row" | cut -d ' ' -f1)
+        local diskid=$(echo "$row" | cut -d ' ' -f3 | rev | cut -d 'p' -f2 | rev)
+
+        if [[ "$gptid" = "gptid"* ]]; then
+            GPTID_TO_DISKID[$gptid]=$diskid
+        fi
+    done < <(glabel status | tail -n +2 | tr -s ' ')
+
+    # Verbose logging
+    if [ $VERBOSE -eq 1 ]; then
+        log_verbose "Detected GPTID to disk identifier mappings:"
+        for gptid in "${!GPTID_TO_DISKID[@]}"; do
+            log_verbose "-> [$gptid]=${GPTID_TO_DISKID[$gptid]}"
+        done
+    fi
+}
+
+##
+# Registers a new drive in $DRIVES array and detects if it is an ATA or SCSI
+# drive.
+#
+# Arguemnts:
+#   $1 Device identifier (e.g. ada0)
+##
+function register_drive() {
+    local drive="$1"
+    if [ -z "$drive" ]; then
+        log_error "Failed to register drive. Empty name received."
+        return 1
+    fi
+
+    local DISK_IS_ATA
+    case $DISK_PARM_TOOL in
+        "camcontrol") DISK_IS_ATA=$(camcontrol identify $drive |& grep -E "^protocol(.*)ATA");;
+        "hdparm") DISK_IS_ATA=$(hdparm -I "/dev/$drive" |& grep -E "^ATA device");;
+    esac
+
+    if [[ -n $DISK_IS_ATA ]]; then
+        DRIVES[$drive]="ATA"
+    else
+        DRIVES[$drive]="SCSI"
+    fi
+}
+
+##
+# Detects all connected drives using plain iostat method and whether they are
+# ATA or SCSI drives. Drives listed in $IGNORE_DRIVES will be excluded.
 #
 # Note: This function populates the $DRIVES array directly.
 ##
-function detect_drives() {
+function detect_drives_disk() {
     local DRIVE_IDS
 
     # Detect relevant drives identifiers
@@ -173,18 +225,58 @@ function detect_drives() {
     fi
 
     # Detect protocol type (ATA or SCSI) for each drive and populate $DRIVES array
-    local DISK_IS_ATA
     for drive in ${DRIVE_IDS}; do
-        case $DISK_PARM_TOOL in
-            "camcontrol") DISK_IS_ATA=$(camcontrol identify $drive |& grep -E "^protocol(.*)ATA");;
-            "hdparm") DISK_IS_ATA=$(hdparm -I "/dev/$drive" |& grep -E "^ATA device");;
-        esac
+        register_drive "$drive"
+    done
+}
 
-        if [[ -n $DISK_IS_ATA ]]; then
-            DRIVES[$drive]="ATA"
-        else
-            DRIVES[$drive]="SCSI"
+##
+# Detects all connected drives using zpool list method and whether they are
+# ATA or SCSI drives. Drives listed in $IGNORE_DRIVES will be excluded.
+#
+# Note: This function populates the $DRIVES array directly.
+##
+function detect_drives_zpool() {
+    local DRIVE_IDS
+
+    # Detect zfs pools
+    if [[ $MANUAL_MODE -eq 1 ]]; then
+        # Only use explicitly supplied pool names
+        for poolname in $IGNORED_DRIVES; do
+            ZFSPOOLS[${#ZFSPOOLS[@]}]="$poolname"
+            log_verbose "Using zfs pool: $poolname"
+        done
+    else
+        # Auto detect available pools
+        local poolnames=$(zpool list -H -o name)
+
+        # Remove ignored pools
+        for ignored_pool in $IGNORED_DRIVES; do
+            poolnames=${poolnames//$ignored_pool/}
+            log_verbose "Ignoring zfs pool: $ignored_pool"
+        done
+
+        # Store remaining detected pools
+        for poolname in $poolnames; do
+            ZFSPOOLS[${#ZFSPOOLS[@]}]="$poolname"
+            log_verbose "Detected zfs pool: $poolname"
+        done
+    fi
+
+    # Index disks in detected pools
+    for poolname in ${ZFSPOOLS[*]}; do
+        local disks
+        if ! disks=$(zpool list -H -v "$poolname"); then
+            log_error "Failed to get information for zfs pool: $poolname. Are you sure it exists?"
+            continue;
         fi
+
+        log_verbose "Detecting disks in pool: $poolname"
+        while read -r gptid; do
+            log_verbose "-> Detected disk in pool $poolname: ${GPTID_TO_DISKID[$gptid]} ($gptid)"
+            register_drive "${GPTID_TO_DISKID[$gptid]}"
+            DRIVES_BY_POOLS[$poolname]="${DRIVES_BY_POOLS[$poolname]} ${GPTID_TO_DISKID[$gptid]}"
+        done < <(echo "$disks" | tr -s "\\t" " " | cut -d ' ' -f2  | grep -E "^gptid/.*$" | sed "s/^\(.*\)\.eli$/\1/")
     done
 }
 
@@ -209,14 +301,35 @@ function get_drives() {
 ##
 function get_idle_drives() {
     # Wait for $1 seconds and get active drives
-    local IOSTAT_OUTPUT=`iostat -x -z -d $1 2`
-    case $DISK_PARM_TOOL in
-        "camcontrol")
-            local CUT_OFFSET=`grep -no "extended device statistics" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+'` ;;
-        "hdparm")
-            local CUT_OFFSET=`grep -no "Device" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+'` ;;
+    local IOSTAT_OUTPUT
+    local ACTIVE_DRIVES
+    case $OPERATION_MODE in
+        "disk")
+            # Operation mode: disk. Detect IO using iostat
+            IOSTAT_OUTPUT=$(iostat -x -z -d $1 2)
+            case $DISK_PARM_TOOL in
+                "camcontrol")
+                    local CUT_OFFSET=$(grep -no "extended device statistics" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+') ;;
+                "hdparm")
+                    local CUT_OFFSET=$(grep -no "Device" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+') ;;
+            esac
+            ACTIVE_DRIVES=$(tail -n +$((CUT_OFFSET+2)) <<< ${IOSTAT_OUTPUT} | awk '{printf $1}{printf " "}')
+        ;;
+        "zpool")
+            # Operation mode: zpool. Detect IO using zpool iostat
+            IOSTAT_OUTPUT=$(zpool iostat -H ${ZFSPOOLS[*]} $1 2)
+
+            while read -r row; do
+                local poolname=$(echo "$row" | cut -d ' ' -f1)
+                local reads=$(echo "$row" | cut -d ' ' -f4)
+                local writes=$(echo "$row" | cut -d ' ' -f5)
+
+                if [ "$reads" != "0" ] || [ "$writes" != "0" ]; then
+                    ACTIVE_DRIVES="$ACTIVE_DRIVES ${DRIVES_BY_POOLS[$poolname]}"
+                fi
+            done < <(tail -n +$((${#ZFSPOOLS[@]}+1)) <<< "${IOSTAT_OUTPUT}" | tr -s "\\t" " ")
+        ;;
     esac
-    local ACTIVE_DRIVES=`tail -n +$((CUT_OFFSET+2)) <<< ${IOSTAT_OUTPUT} | awk '{printf $1}{printf " "}'`
 
     # Remove active drives from list to get idle drives
     local IDLE_DRIVES=" $(get_drives) " # Space padding must be kept for pattern matching
@@ -345,7 +458,8 @@ function main() {
     log_verbose "Using disk parameter tool: ${DISK_PARM_TOOL}"
 
     # Initially identify drives to monitor
-    detect_drives
+    populate_gptid_to_diskid_array
+    detect_drives_$OPERATION_MODE
     for drive in ${!DRIVES[@]}; do
         log_verbose "Detected drive ${drive} as ${DRIVES[$drive]} device"
     done
