@@ -34,6 +34,7 @@
 
 # TODO: Add zpool operation mode to README and update all areas that changed
 
+VERSION=2.1.0
 TIMEOUT=3600               # Default timeout before considering a drive as idle
 POLL_TIME=600              # Default time to wait during a single iostat call
 IGNORED_DRIVES=""          # Default list of drives that are never spun down
@@ -443,6 +444,7 @@ function get_drive_timeouts() {
 # Main program loop
 ##
 function main() {
+    log_verbose "Running HDD Spindown Timer version $VERSION"
     if [[ $DRYRUN -eq 1 ]]; then log "Performing a dry run..."; fi
 
     # Verify operation mode
