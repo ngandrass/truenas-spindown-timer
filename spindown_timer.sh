@@ -46,7 +46,8 @@ SHUTDOWN_TIMEOUT=0         # Default shutdown timeout (0 == no shutdown)
 declare -A DRIVES          # Associative array for detected drives
 declare -A ZFSPOOLS        # Array for monitored ZFS pools
 declare -A DRIVES_BY_POOLS # Associative array mapping of pool names to list of disk identifiers (e.g. poolname => "ada0 ada1 ada2")
-declare -A GPTID_TO_DISKID # Associative array with GPTID to disk device identifier
+declare -A DRIVEID_TO_DEV  # Associative array with the drive id (e.g. GPTID) to a device identifier
+DRIVEID_TYPE=              # Default for type used for drive IDs ('gptid' (CORE) or 'partuuid' (SCALE))
 DISK_PARM_TOOL=camcontrol  # Default disk parameter tool to use (camcontrol OR hdparm)
 OPERATION_MODE=disk        # Default operation mode (disk or zpool)
 
@@ -163,24 +164,57 @@ function detect_disk_parm_tool() {
 }
 
 ##
-# Populates the GPTID_TO_DISKID associative array. GPTIDs are used as keys.
-#
-function populate_gptid_to_diskid_array() {
-    # Create mapping
-    while read -r row; do
-        local gptid=$(echo "$row" | cut -d ' ' -f1)
-        local diskid=$(echo "$row" | cut -d ' ' -f3 | rev | cut -d 'p' -f2 | rev)
+# Detects which type of drive IDs are used.
+# CORE uses glabel GPTIDs, SCALE uses partuuids
+##
+function detect_driveid_type() {
+    if [[ -n $(which glabel) ]]; then
+        DRIVEID_TYPE=gptid
+    elif [[ -d "/dev/disk/by-partuuid/" ]]; then
+        DRIVEID_TYPE=partuuid
+    else
+        log_error "Cannot detect drive id type. Exiting..."
+        exit 1
+    fi
 
-        if [[ "$gptid" = "gptid"* ]]; then
-            GPTID_TO_DISKID[$gptid]=$diskid
-        fi
-    done < <(glabel status | tail -n +2 | tr -s ' ')
+    log_verbose "Detected drive id type: $DRIVEID_TYPE"
+}
+
+##
+# Populates the DRIVEID_TO_DEV associative array. Drive IDs are used as keys.
+# Must be called after detect_driveid_type()
+#
+function populate_driveid_to_dev_array() {
+    # Create mapping
+    case $DRIVEID_TYPE in
+        "gptid")
+            # glabel present. Index by GPTID (CORE)
+            log_verbose "Creating disk to dev mapping using: glabel"
+            while read -r row; do
+                local gptid=$(echo "$row" | cut -d ' ' -f1)
+                local diskid=$(echo "$row" | cut -d ' ' -f3 | rev | cut -d 'p' -f2 | rev)
+
+                if [[ "$gptid" = "gptid"* ]]; then
+                    DRIVEID_TO_DEV[$gptid]=$diskid
+                fi
+            done < <(glabel status | tail -n +2 | tr -s ' ')
+        ;;
+        "partuuid")
+            # glabel absent. Try to detect by partuuid (SCALE)
+            log_verbose "Creating disk to dev mapping using: partuuid"
+            while read -r row; do
+                local partuuid=$(basename -- "${row}")
+                local dev=$(basename -- "$(readlink -f "${row}")" | sed "s/[0-9]\+$//")
+                DRIVEID_TO_DEV[$partuuid]=$dev
+            done < <(find /dev/disk/by-partuuid/ -type l)
+        ;;
+    esac
 
     # Verbose logging
     if [ $VERBOSE -eq 1 ]; then
-        log_verbose "Detected GPTID to disk identifier mappings:"
-        for gptid in "${!GPTID_TO_DISKID[@]}"; do
-            log_verbose "-> [$gptid]=${GPTID_TO_DISKID[$gptid]}"
+        log_verbose "Detected disk identifier to dev mappings:"
+        for deviceid in "${!DRIVEID_TO_DEV[@]}"; do
+            log_verbose "-> [$deviceid]=${DRIVEID_TO_DEV[$deviceid]}"
         done
     fi
 }
@@ -283,11 +317,23 @@ function detect_drives_zpool() {
         fi
 
         log_verbose "Detecting disks in pool: $poolname"
-        while read -r gptid; do
-            log_verbose "-> Detected disk in pool $poolname: ${GPTID_TO_DISKID[$gptid]} ($gptid)"
-            register_drive "${GPTID_TO_DISKID[$gptid]}"
-            DRIVES_BY_POOLS[$poolname]="${DRIVES_BY_POOLS[$poolname]} ${GPTID_TO_DISKID[$gptid]}"
-        done < <(echo "$disks" | tr -s "\\t" " " | cut -d ' ' -f2  | grep -E "^gptid/.*$" | sed "s/^\(.*\)\.eli$/\1/")
+
+        while read -r driveid; do
+            # Remove invalid rows (Cannot be statically cut because of different pool geometries)
+            case $DRIVEID_TYPE in
+                "gptid")    driveid=$(echo "$driveid" | grep -E "^gptid/.*$" | sed "s/^\(.*\)\.eli$/\1/") ;;
+                "partuuid") driveid=$(echo "$driveid" | grep -E "^(\w+\-){2,}") ;;
+            esac
+
+            # Skip if current row is invalid after filtering above
+            if [ -z "$driveid" ]; then
+                continue
+            fi
+
+            log_verbose "-> Detected disk in pool $poolname: ${DRIVEID_TO_DEV[$driveid]} ($driveid)"
+            register_drive "${DRIVEID_TO_DEV[$driveid]}"
+            DRIVES_BY_POOLS[$poolname]="${DRIVES_BY_POOLS[$poolname]} ${DRIVEID_TO_DEV[$driveid]}"
+        done < <(echo "$disks" | tr -s "\\t" " " | cut -d ' ' -f2)
     done
 }
 
@@ -470,7 +516,8 @@ function main() {
     log_verbose "Using disk parameter tool: ${DISK_PARM_TOOL}"
 
     # Initially identify drives to monitor
-    populate_gptid_to_diskid_array
+    detect_driveid_type
+    populate_driveid_to_dev_array
     detect_drives_$OPERATION_MODE
     for drive in ${!DRIVES[@]}; do
         log_verbose "Detected drive ${drive} as ${DRIVES[$drive]} device"
