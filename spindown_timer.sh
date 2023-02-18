@@ -99,7 +99,7 @@ EOF
 ##
 function log() {
     if [[ $QUIET -eq 0 ]]; then
-        echo $1
+        echo "[$(date '+%F %T')] $1"
     fi
 }
 
@@ -112,7 +112,7 @@ function log() {
 function log_verbose() {
     if [[ $VERBOSE -eq 1 ]]; then
         if [[ $QUIET -eq 0 ]]; then
-            echo $1
+            echo "[$(date '+%F %T')] $1"
         fi
     fi
 }
@@ -124,7 +124,7 @@ function log_verbose() {
 #   $1 Message to write to stderr
 ##
 function log_error() {
-    >&2 echo "[ERROR]: $1"
+    >&2 echo "[$(date '+%F %T')] [ERROR]: $1"
 }
 
 ##
@@ -307,11 +307,13 @@ function spindown_drive() {
                     hdparm -q -y "/dev/$1"
                 ;;
             esac
-        fi
 
-        log "$(date '+%F %T') Spun down idle drive: $1"
+            log "Spun down idle drive: $1"
+        else
+            log "Would spin down idle drive: $1. No spindown was performed (dry run)."
+        fi
     else
-        log_verbose "$(date '+%F %T') Drive is already spun down: $1"
+        log_verbose "Drive is already spun down: $1"
     fi
 }
 
@@ -319,7 +321,7 @@ function spindown_drive() {
 # Generates a list of all active timeouts
 ##
 function get_drive_timeouts() {
-    echo -n "$(date '+%F %T') Drive timeouts: "
+    echo -n "Drive timeouts: "
     for x in "${!DRIVE_TIMEOUTS[@]}"; do printf "[%s]=%s " "$x" "${DRIVE_TIMEOUTS[$x]}" ; done
     echo ""
 }
