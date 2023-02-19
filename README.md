@@ -1,20 +1,21 @@
 # TrueNAS Spindown Timer
 
-_Monitors drive I/O and forces HDD spindown after a given idle period. Resistant to S.M.A.R.T. reads._
+_Monitors drive I/O and forces HDD spindown after a given idle period. Resistant
+to S.M.A.R.T. reads._
 
 Disk spindown has always been an issue for various TrueNAS / FreeNAS users. This
 script utilizes `iostat` to detect I/O operations (reads, writes) on each disk.
 If a disk was neither read nor written for a given period of time, it is
 considered idle and is spun down.
 
-Periodic reads of S.M.A.R.T. data performed by the smartctl service are
-excluded. This allows users to have S.M.A.R.T. reporting enabled while still
-being able to automatically spin down disks. The script moreover is immune to
-the periodic disk temperature reads in newer versions of TrueNAS.
+Periodic reads of S.M.A.R.T. data performed by the smartctl service are excluded.
+This allows users to have S.M.A.R.T. reporting enabled while being able to
+automatically spin down disks. The script moreover is immune to the periodic
+disk temperature reads in newer versions of TrueNAS.
 
 Successfully tested on (most relevant):
   * **`TrueNAS-13.0-U3.1 (Core)`**
-  * **`TrueNAS SCALE 22.02.3`**
+  * **`TrueNAS SCALE 22.12.0`**
   * `TrueNAS-12.0 (Core)`
   * `FreeNAS-11.3`
 
@@ -24,49 +25,71 @@ this file.
 
 ## Key Features
 
-  * Periodic S.M.A.R.T. reads do not reset the disk idle timers
-  * Configurable idle timeout and poll interval
-  * Support for ATA and SCSI devices
-  * Works with both TrueNAS Core and TrueNAS SCALE
-  * Per-disk idle timer / Independent spindown
-  * Automatic detection or explicit listing of drives to monitor
-  * Ignoring of specific drives (e.g. SSD with system dataset)
-  * Executable via `Tasks` as `Post-Init Script`, configurable via TrueNAS GUI
-  * Allows script placement on encrypted pool
-  * Optional shutdown after configurable idle time
+  * [Periodic S.M.A.R.T. reads do not interfere with spindown](#configure-disk-standby-settings)
+  * [Support for ATA and SCSI devices](#verify-drive-spindown--optional-)
+  * [Works with both TrueNAS Core and TrueNAS SCALE](#tested-truenas--freenas-versions)
+  * [Can operate on single disks or whole ZFS pools](#operation-mode--disk-vs-zpool)
+  * [Per-disk idle timer / Independent spindown](#operation-mode--disk-vs-zpool)
+  * [Configurable idle timeout and poll interval](#using-separate-timeouts-for-different-drives)
+  * [Different idle timeouts for different disks / ZFS pools](#using-separate-timeouts-for-different-drives)
+  * [Automatic detection or explicit listing of drives / ZFS pools to monitor](#usage)
+  * [Ignoring of specific drives / ZFS pools (e.g. SSD with system dataset)](#usage)
+  * [Executable via `Tasks` as `Post-Init Script`, configurable via TrueNAS GUI](#automatic-start-at-boot)
+  * [Allows script placement on encrypted pool](#delayed-start--script-placed-in-encrypted-pool-)
+  * [Optional automatic shutdown after configurable idle time](#automatic-system-shutdown--s-timeout)
 
 
 ## Usage
 
 ```
-Usage: spindown_timer.sh [-h] [-q] [-v] [-d] [-m] [-t TIMEOUT] [-p POLL_TIME] [-i DRIVE] [-s TIMEOUT]
+Usage:
+  spindown_timer.sh [-h] [-q] [-v] [-d] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
 
-Monitors drive I/O and forces disk spindown after a given idle period.
+Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
 
-A drive is considered as idle and is spun down if there has been no I/O
-operations on it for at least TIMEOUT seconds. I/O requests are evaluated
-during intervals with a length of POLL_TIME seconds. Detected reads or
+Operation is supported on either drive level (MODE = disk) with plain device
+identifiers or zpool level (MODE = zpool) with zfs pool names. See -u for more
+information. A drive is considered idle and gets spun down if there has been no
+I/O operations on it for at least TIMEOUT seconds. I/O requests are detected
+within multiple intervals with a length of POLL_TIME seconds. Detected reads or
 writes reset the drives timer back to TIMEOUT.
 
 Options:
-  -q           : Quiet mode. Outputs are suppressed if flag is present.
+  -t TIMEOUT   : Total spindown delay. Number of seconds a drive has to
+                 experience no I/O activity before it is spun down (default: 3600).
+  -p POLL_TIME : I/O poll interval. Number of seconds to wait for I/O during a
+                 single monitoring period (default: 600).
+  -s TIMEOUT   : Shutdown timeout. If given and no drive is active for TIMEOUT
+                 seconds, the system will be shut down.
+  -u MODE      : Operation mode (default: disk).
+                 If set to 'disk', the script operates with disk identifiers
+                 (e.g. ada0) for all CLI arguments and monitors I/O using
+                 iostat directly.
+                 If set to 'zpool' the script operates with ZFS pool names
+                 (e.g. zfsdata) for all CLI arguments and monitors I/O using
+                 the iostat of zpool.
+  -i DRIVE     : In automatic drive detection mode (default):
+                   Ignores the given drive or zfs pool.
+                 In manual mode [-m]:
+                   Only monitor the specified drives or zfs pools. Multiple
+                   drives or zfs pools can be given by repeating the -i option.
+  -m           : Manual drive detection mode. If set, automatic drive detection
+                 is disabled.
+                 CAUTION: This inverts the -i option, which can then be used to
+                 manually supply drives or zfs pools to monitor. All other drives
+                 or zfs pools will be ignored.
+  -q           : Quiet mode. Outputs are suppressed set.
   -v           : Verbose mode. Prints additional information during execution.
   -d           : Dry run. No actual spindown is performed.
-  -m           : Manual mode. If this flag is set, the automatic drive detection
-                 is disabled.
-                 This inverts the -i switch, which then needs to be used to supply
-                 each drive to monitor. All other drives will be ignored.
-  -t TIMEOUT   : Number of seconds to wait for I/O in total before considering
-                 a drive as idle.
-  -p POLL_TIME : Number of seconds to wait for I/O during a single iostat call.
-  -i DRIVE     : In automatic drive detection mode (default): Ignores the given
-                 drive and never issue a spindown command for it.
-                 In manual mode [-m]: Only monitor the specified drives.
-                 Multiple drives can be given by repeating the -i switch.
-  -s TIMEOUT   : Shutdown timeout, if no drive is active for TIMEOUT seconds, 
-                 the system will be shut down 
   -h           : Print this help message.
+
+Example usage:
+spindown_timer.sh
+spindown_timer.sh -q -t 3600 -p 600 -i ada0 -i ada1
+spindown_timer.sh -q -m -i ada6 -i ada7 -i da0
+spindown_timer.sh -u zpool -i freenas-boot
+
 ```
 
 ## Deployment and configuration
@@ -79,9 +102,9 @@ The following steps describe how to configure TrueNAS and deploy the script.
 To prevent the smartctl daemon or TrueNAS from interfering with spun down disks,
 open the TrueNAS GUI and navigate to `Storage > Disks`.
 
-For every disk that you would like to spin down, click the `Edit` button. Then
-set the `HDD Standby` option to `Always On` and `Advanced Power Management` to
-level 128 or above. 
+For every disk you want to spin down, click the `Edit` button. Set the `HDD
+Standby` option to `Always On` and `Advanced Power Management` to level 128 or
+above. 
 
 ![HDD standby settings](screenshots/disk-spindown-config.png)
 
@@ -92,9 +115,9 @@ Mode` to `Standby`. This setting was configured globally and was located under
 
 ### System dataset placement
 
-Having the TrueNAS system dataset placed inside a pool prevents the spindown of
-contained disks. Therefore it should be located on a disk that will not be spun
-down (e.g. the OS SSD).
+Having the TrueNAS system dataset placed on a drive / ZFS pool prevents spindown.
+The system dataset should therefore be located on a disk that will not be spun
+down (e.g. the operating system SSD).
 
 The location of the system dataset can be configured under `System > System
 Dataset`.
@@ -109,6 +132,26 @@ Copy the script to your NAS box and set the execution permission through `chmod
 
 That's it! The script can now be run, e.g., in a `tmux` session. However, an
 automatic start during boot is highly recommended (see next section).
+
+
+### Operation Mode: disk vs zpool
+
+The spindown timer support two operation modes, as selected by the `-u <MODE>`
+CLI argument (default: `disk`):
+
+- `disk`: Operates with plain disk identifiers (e.g. `ada0`, `sda`, ...). Each
+  disk is monitored and spun down independently. Disks can even be spun down if
+  they are not part of any ZFS pool (e.g. for hot standby). The CLI option `-i`
+  will expect disk names as found in `/dev`.
+- `zpool`: Operates on a ZFS pool level. Disks are grouped by their associated
+  ZFS pool. Disks are only spun down if all disks inside a ZFS pool (i.e. the
+  ZFS pool as a whole) received no I/O for a given amount of time. The CLI
+  option `-i` will expect pool names (e.g. `zfsdata`, `tank`, ...) as output by
+  `zpool list`.
+
+You can also use a combination of both modes when running multiple instances of
+the script. See [Using separate timeouts for different drives](#using-separate-timeouts-for-different-drives)
+for more details.
 
 
 ### Automatic start at boot
@@ -243,6 +286,15 @@ already spun down after 600 seconds of being idle:
 ./spindown_timer.sh -m -t 600 -i ada0 -i ada1  # Manual mode
 ```
 
+Another example is to operate on ZFS pool basis by default but spin down a set
+of additional disks that are not part of any ZFS pool yet (e.g., for hot
+standby):
+
+```bash
+./spindown_timer.sh -u zpool -i freenas-boot -i ssd  # Spindown all ZFS pools except 'freenas-boot' and 'ssd'
+./spindown_timer.sh -u disk -m -i ada8 -i ada9       # Additionally spin down disk drives 'ada8' and 'ada9' that are not part of any ZFS pool yet
+```
+
 To start all required spindown timer instances you can simply create multiple
 `Post Init Scripts`, as described above in the Section [Automatic start at
 boot](#automatic-start-at-boot).
@@ -282,6 +334,7 @@ This script was successfully tested on the following OS versions:
 * `FreeNAS-11.2-U4.1`
 
 ### TrueNAS SCALE
+* `TrueNAS SCALE 22.12.0`
 * `TrueNAS SCALE 22.02.3`
 
 _Intermediate OS versions not listed here have not been explicitly tested, but
