@@ -1,5 +1,16 @@
 # TrueNAS Spindown Timer
 
+[![Latest Version](https://img.shields.io/github/v/release/ngandrass/truenas-spindown-timer)](https://github.com/ngandrass/truenas-spindown-timer/releases)
+[![TrueNAS Version: CORE](https://img.shields.io/badge/TrueNAS%20Version-SCALE-blue)](https://github.com/ngandrass/truenas-spindown-timer/)
+[![TrueNAS Version: SCALE](https://img.shields.io/badge/TrueNAS%20Version-CORE-blue)](https://github.com/ngandrass/truenas-spindown-timer/)
+[![Maintenance Status](https://img.shields.io/maintenance/yes/9999)](https://github.com/ngandrass/truenas-spindown-timer/)
+[![License](https://img.shields.io/github/license/ngandrass/truenas-spindown-timer)](https://github.com/ngandrass/truenas-spindown-timer/blob/master/LICENSE)
+[![GitHub Issues](https://img.shields.io/github/issues/ngandrass/truenas-spindown-timer)](https://github.com/ngandrass/truenas-spindown-timer/issues)
+[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/ngandrass/truenas-spindown-timer)](https://github.com/ngandrass/truenas-spindown-timer/pulls)
+[![GitHub Stars](https://img.shields.io/github/stars/ngandrass/truenas-spindown-timer?style=social)](https://github.com/ngandrass/truenas-spindown-timer/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/ngandrass/truenas-spindown-timer?style=social)](https://github.com/ngandrass/truenas-spindown-timer/network/members)
+[![GitHub Contributors](https://img.shields.io/github/contributors/ngandrass/truenas-spindown-timer?style=social)](https://github.com/ngandrass/truenas-spindown-timer/graphs/contributors)
+
 _Monitors drive I/O and forces HDD spindown after a given idle period. Resistant
 to S.M.A.R.T. reads._
 
