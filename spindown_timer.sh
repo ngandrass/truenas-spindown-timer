@@ -32,8 +32,6 @@
 # SOFTWARE.
 # ##################################################
 
-# TODO: Add zpool operation mode to README and update all areas that changed
-
 VERSION=2.1.0
 TIMEOUT=3600               # Default timeout before considering a drive as idle
 POLL_TIME=600              # Default time to wait during a single iostat call
@@ -56,7 +54,8 @@ OPERATION_MODE=disk        # Default operation mode (disk or zpool)
 ##
 function print_usage() {
     cat << EOF
-Usage: $0 [-h] [-q] [-v] [-d] [-m] [-u MODE] [-t TIMEOUT] [-p POLL_TIME] [-i DRIVE] [-s TIMEOUT]
+Usage:
+  $0 [-h] [-q] [-v] [-d] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
 
 Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
