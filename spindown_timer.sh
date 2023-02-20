@@ -37,6 +37,7 @@ TIMEOUT=3600               # Default timeout before considering a drive as idle
 POLL_TIME=600              # Default time to wait during a single iostat call
 IGNORED_DRIVES=""          # Default list of drives that are never spun down
 MANUAL_MODE=0              # Default manual mode setting
+CHECK_MODE=0               # Default check mode setting
 QUIET=0                    # Default quiet mode setting
 VERBOSE=0                  # Default verbosity level
 DRYRUN=0                   # Default for dryrun option
@@ -55,7 +56,7 @@ OPERATION_MODE=disk        # Default operation mode (disk or zpool)
 function print_usage() {
     cat << EOF
 Usage:
-  $0 [-h] [-q] [-v] [-d] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
+  $0 [-h] [-q] [-v] [-d] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
 
 Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
@@ -91,6 +92,8 @@ Options:
                  CAUTION: This inverts the -i option, which can then be used to
                  manually supply drives or zfs pools to monitor. All other drives
                  or zfs pools will be ignored.
+  -c           : Check mode. Outputs drive power state after each POLL_TIME
+                 seconds.
   -q           : Quiet mode. Outputs are suppressed set.
   -v           : Verbose mode. Prints additional information during execution.
   -d           : Dry run. No actual spindown is performed.
@@ -454,6 +457,19 @@ function drive_is_spinning() {
 }
 
 ##
+# Prints the power state of all monitored drives
+##
+function print_drive_power_states() {
+    local powerstates=""
+
+    for drive in $(get_drives); do
+        powerstates="${powerstates} [$drive] => $(drive_is_spinning "$drive")"
+    done
+
+    log "Drive power states: ${powerstates:1}"
+}
+
+##
 # Forces the spindown of the drive specified by parameter $1 trough camcontrol
 #
 # Arguments:
@@ -541,6 +557,10 @@ function main() {
 
     # Drive I/O monitoring loop
     while true; do
+        if [ $CHECK_MODE -eq 1 ]; then
+            print_drive_power_states
+        fi
+
         local IDLE_DRIVES=$(get_idle_drives ${POLL_TIME})
 
         for drive in "${!DRIVE_TIMEOUTS[@]}"; do
@@ -575,7 +595,7 @@ function main() {
 }
 
 # Parse arguments
-while getopts ":hqvdmt:p:i:s:u:" opt; do
+while getopts ":hqvdmct:p:i:s:u:" opt; do
   case ${opt} in
     t ) TIMEOUT=${OPTARG}
       ;;
@@ -584,6 +604,8 @@ while getopts ":hqvdmt:p:i:s:u:" opt; do
     i ) IGNORED_DRIVES="$IGNORED_DRIVES ${OPTARG}"
       ;;
     s ) SHUTDOWN_TIMEOUT=${OPTARG}
+      ;;
+    c ) CHECK_MODE=1
       ;;
     q ) QUIET=1
       ;;
