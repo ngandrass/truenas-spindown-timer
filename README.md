@@ -232,7 +232,22 @@ It can be useful to check the current power state of a drive. This can be done
 by using one of the following commands, depending on your device type.
 
 
-#### ATA drives
+#### Automatic: Using the check mode (`-c`)
+
+The script features a check mode. If the CLI flag `-c` is supplied, the power
+state of all monitored drives is output every `POLL_TIME` seconds, as set via
+the `-p` option (default: 600 seconds). To monitor drive power states without
+performing actual spindowns, the dry run flag `-d` can be set.
+
+The following example checks the power state of all drives every 60 seconds and
+does perform no spindowns:
+
+```bash
+./spindown_timer.sh -d -c -p 60
+```
+
+
+#### Manual: ATA drives
 
 The current power mode of an ATA drive can be checked using the command
 `camcontrol epc $drive -c status -P`, where `$drive` is the drive to check
@@ -241,7 +256,7 @@ The current power mode of an ATA drive can be checked using the command
 It should return `Current power state: Standby_z(0x00)` for a spun down drive.
 
 
-#### SCSI drives
+#### Manual: SCSI drives
 
 The current power mode of a SCSI drive can be checked through reading the
 modepage `0x1a` using the command `camcontrol modepage $drive -m 0x1a`, where
