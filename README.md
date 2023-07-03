@@ -27,7 +27,7 @@ automatically spin down disks. The script moreover is immune to the periodic
 disk temperature reads in newer versions of TrueNAS.
 
 Successfully tested on (most relevant):
-  * **`TrueNAS-13.0-U4 (Core)`**
+  * **`TrueNAS-13.0-U5.1 (Core)`**
   * **`TrueNAS SCALE 22.12.0`**
   * `TrueNAS-12.0 (Core)`
   * `FreeNAS-11.3`
@@ -343,6 +343,7 @@ Setting `TIMEOUT` to 0 results in no shutdown.
 This script was successfully tested on the following OS versions:
 
 ### TrueNAS (Core)
+* `TrueNAS-13.0-U5.1 (Core)`
 * `TrueNAS-13.0-U4 (Core)`
 * `TrueNAS-13.0-U3.1 (Core)`
 * `TrueNAS-12.0-U8 (Core)`
