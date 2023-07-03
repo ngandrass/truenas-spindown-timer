@@ -7,6 +7,8 @@
 [![License](https://img.shields.io/github/license/ngandrass/truenas-spindown-timer)](https://github.com/ngandrass/truenas-spindown-timer/blob/master/LICENSE)
 [![GitHub Issues](https://img.shields.io/github/issues/ngandrass/truenas-spindown-timer)](https://github.com/ngandrass/truenas-spindown-timer/issues)
 [![GitHub Pull Requests](https://img.shields.io/github/issues-pr/ngandrass/truenas-spindown-timer)](https://github.com/ngandrass/truenas-spindown-timer/pulls)
+[![Donate with PayPal](https://img.shields.io/badge/PayPal-donate-orange)](https://www.paypal.me/ngandrass)
+[![Sponsor with GitHub](https://img.shields.io/badge/GitHub-sponsor-orange)](https://github.com/sponsors/ngandrass)
 [![GitHub Stars](https://img.shields.io/github/stars/ngandrass/truenas-spindown-timer?style=social)](https://github.com/ngandrass/truenas-spindown-timer/stargazers)
 [![GitHub Forks](https://img.shields.io/github/forks/ngandrass/truenas-spindown-timer?style=social)](https://github.com/ngandrass/truenas-spindown-timer/network/members)
 [![GitHub Contributors](https://img.shields.io/github/contributors/ngandrass/truenas-spindown-timer?style=social)](https://github.com/ngandrass/truenas-spindown-timer/graphs/contributors)
