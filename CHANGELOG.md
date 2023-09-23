@@ -1,5 +1,9 @@
 # Changelog
 
+## Version x.x.x (XXXX-XX-XX)
+  * Introduce syslog mode (`-l`). If set, all output is logged to syslog instead of stdout/stderr.
+
+
 ## Version 2.2.0 (2023-02-20)
   * Introduce the check mode (`-c`) to display the current power mode of all monitored drives every `POLL_TIME` seconds. See [README.md > Using the check mode](https://github.com/ngandrass/truenas-spindown-timer#automatic-using-the-check-mode--c) for more details.
 
