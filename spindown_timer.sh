@@ -37,6 +37,7 @@ TIMEOUT=3600               # Default timeout before considering a drive as idle
 POLL_TIME=600              # Default time to wait during a single iostat call
 IGNORED_DRIVES=""          # Default list of drives that are never spun down
 MANUAL_MODE=0              # Default manual mode setting
+ONESHOT_MODE=0             # Default for one shot mode setting
 CHECK_MODE=0               # Default check mode setting
 QUIET=0                    # Default quiet mode setting
 VERBOSE=0                  # Default verbosity level
@@ -57,7 +58,7 @@ OPERATION_MODE=disk        # Default operation mode (disk or zpool)
 function print_usage() {
     cat << EOF
 Usage:
-  $0 [-h] [-q] [-v] [-l] [-d] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
+  $0 [-h] [-q] [-v] [-l] [-d] [-o] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
 
 Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
@@ -93,6 +94,11 @@ Options:
                  CAUTION: This inverts the -i option, which can then be used to
                  manually supply drives or zfs pools to monitor. All other drives
                  or zfs pools will be ignored.
+  -o           : One shot mode. If set, the script performs exactly one I/O poll
+                 interval, then immediately spins down drives that were idle for
+                 the last <POLL_TIME> seconds, and exits. This option ignores
+                 <TIMEOUT>. It can be useful, if you want to invoke to script
+                 via cron.
   -c           : Check mode. Outputs drive power state after each POLL_TIME
                  seconds.
   -q           : Quiet mode. Outputs are suppressed set.
@@ -532,6 +538,7 @@ function get_drive_timeouts() {
 function main() {
     log_verbose "Running HDD Spindown Timer version $VERSION"
     if [[ $DRYRUN -eq 1 ]]; then log "Performing a dry run..."; fi
+    if [[ $ONESHOT_MODE -eq 1 ]]; then log "Running in one shot mode... Notice: Timeout (-t) value will be ignored. Using poll time (-p) instead."; fi
 
     # Verify operation mode
     if [ "$OPERATION_MODE" != "disk" ] && [ "$OPERATION_MODE" != "zpool" ]; then
@@ -563,7 +570,11 @@ function main() {
     # Init timeout counters for all monitored drives
     declare -A DRIVE_TIMEOUTS
     for drive in $(get_drives); do
-        DRIVE_TIMEOUTS[$drive]=${TIMEOUT}
+        if [[ $ONESHOT_MODE -eq 1 ]]; then
+            DRIVE_TIMEOUTS[$drive]=${POLL_TIME}
+        else
+            DRIVE_TIMEOUTS[$drive]=${TIMEOUT}
+        fi
     done
     log_verbose "$(get_drive_timeouts)"
     
@@ -578,6 +589,7 @@ function main() {
 
         local IDLE_DRIVES=$(get_idle_drives ${POLL_TIME})
 
+        # Update drive timeouts and spin down idle drives
         for drive in "${!DRIVE_TIMEOUTS[@]}"; do
             if [[ $IDLE_DRIVES =~ $drive ]]; then
                 DRIVE_TIMEOUTS[$drive]=$((DRIVE_TIMEOUTS[$drive] - POLL_TIME))
@@ -591,8 +603,7 @@ function main() {
             fi
         done
 
-        log_verbose "$(get_drive_timeouts)"
-        
+        # Handle shutdown timeout
         if [ ${SHUTDOWN_TIMEOUT} -gt 0 ]; then
             if all_drives_are_idle "${IDLE_DRIVES}"; then
                 SHUTDOWN_COUNTER=$((SHUTDOWN_COUNTER - POLL_TIME))
@@ -606,11 +617,19 @@ function main() {
             log_verbose "Shutdown timeout: ${SHUTDOWN_COUNTER}"
         fi
 
+        # Handle one shot mode
+        if [[ $ONESHOT_MODE -eq 1 ]]; then
+            log_verbose "One shot mode: Exiting..."
+            exit 0
+        fi
+
+        # Log updated drive timeouts
+        log_verbose "$(get_drive_timeouts)"
     done
 }
 
 # Parse arguments
-while getopts ":hqvdlmct:p:i:s:u:" opt; do
+while getopts ":hqvdlmoct:p:i:s:u:" opt; do
   case ${opt} in
     t ) TIMEOUT=${OPTARG}
       ;;
@@ -619,6 +638,8 @@ while getopts ":hqvdlmct:p:i:s:u:" opt; do
     i ) IGNORED_DRIVES="$IGNORED_DRIVES ${OPTARG}"
       ;;
     s ) SHUTDOWN_TIMEOUT=${OPTARG}
+      ;;
+    o ) ONESHOT_MODE=1
       ;;
     c ) CHECK_MODE=1
       ;;

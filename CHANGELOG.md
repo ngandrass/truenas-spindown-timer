@@ -2,6 +2,7 @@
 
 ## Version x.x.x (XXXX-XX-XX)
   * Introduce syslog mode (`-l`). If set, all output is logged to syslog instead of stdout/stderr.
+  * Introduce one shot mode (`-o`). If set, the script performs exactly one I/O poll interval, then immediately spins down drives that were idle for the last `POLL_TIME` seconds, and exits.
 
 
 ## Version 2.2.0 (2023-02-20)
