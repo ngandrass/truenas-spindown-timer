@@ -56,7 +56,7 @@ this file.
 
 ```
 Usage:
-  spindown_timer.sh [-h] [-q] [-v] [-d] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
+  spindown_timer.sh [-h] [-q] [-v] [-l] [-d] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
 
 Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
@@ -92,8 +92,12 @@ Options:
                  CAUTION: This inverts the -i option, which can then be used to
                  manually supply drives or zfs pools to monitor. All other drives
                  or zfs pools will be ignored.
+  -c           : Check mode. Outputs drive power state after each POLL_TIME
+                 seconds.
   -q           : Quiet mode. Outputs are suppressed set.
   -v           : Verbose mode. Prints additional information during execution.
+  -l           : Syslog logging. If set, all output is logged to syslog instead
+                 of stdout/stderr.
   -d           : Dry run. No actual spindown is performed.
   -h           : Print this help message.
 

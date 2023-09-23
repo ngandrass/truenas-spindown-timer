@@ -40,6 +40,7 @@ MANUAL_MODE=0              # Default manual mode setting
 CHECK_MODE=0               # Default check mode setting
 QUIET=0                    # Default quiet mode setting
 VERBOSE=0                  # Default verbosity level
+LOG_TO_SYSLOG=0            # Default for logging target (stdout/stderr or syslog)
 DRYRUN=0                   # Default for dryrun option
 SHUTDOWN_TIMEOUT=0         # Default shutdown timeout (0 == no shutdown)
 declare -A DRIVES          # Associative array for detected drives
@@ -56,7 +57,7 @@ OPERATION_MODE=disk        # Default operation mode (disk or zpool)
 function print_usage() {
     cat << EOF
 Usage:
-  $0 [-h] [-q] [-v] [-d] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
+  $0 [-h] [-q] [-v] [-l] [-d] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
 
 Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
@@ -96,6 +97,8 @@ Options:
                  seconds.
   -q           : Quiet mode. Outputs are suppressed set.
   -v           : Verbose mode. Prints additional information during execution.
+  -l           : Syslog logging. If set, all output is logged to syslog instead
+                 of stdout/stderr.
   -d           : Dry run. No actual spindown is performed.
   -h           : Print this help message.
 
@@ -115,7 +118,11 @@ EOF
 ##
 function log() {
     if [[ $QUIET -eq 0 ]]; then
-        echo "[$(date '+%F %T')] $1"
+        if [[ $LOG_TO_SYSLOG -eq 1 ]]; then
+            echo "$1" | logger -i -t "spindown_timer"
+        else
+            echo "[$(date '+%F %T')] $1"
+        fi
     fi
 }
 
@@ -128,7 +135,11 @@ function log() {
 function log_verbose() {
     if [[ $VERBOSE -eq 1 ]]; then
         if [[ $QUIET -eq 0 ]]; then
-            echo "[$(date '+%F %T')] $1"
+            if [[ $LOG_TO_SYSLOG -eq 1 ]]; then
+                echo "$1" | logger -i -t "spindown_timer"
+            else
+                echo "[$(date '+%F %T')] $1"
+            fi
         fi
     fi
 }
@@ -140,7 +151,11 @@ function log_verbose() {
 #   $1 Message to write to stderr
 ##
 function log_error() {
-    >&2 echo "[$(date '+%F %T')] [ERROR]: $1"
+    if [[ $LOG_TO_SYSLOG -eq 1 ]]; then
+        echo "$1" | logger -i -t "spindown_timer"
+    else
+        >&2 echo "[$(date '+%F %T')] [ERROR]: $1"
+    fi
 }
 
 ##
@@ -595,7 +610,7 @@ function main() {
 }
 
 # Parse arguments
-while getopts ":hqvdmct:p:i:s:u:" opt; do
+while getopts ":hqvdlmct:p:i:s:u:" opt; do
   case ${opt} in
     t ) TIMEOUT=${OPTARG}
       ;;
@@ -610,6 +625,8 @@ while getopts ":hqvdmct:p:i:s:u:" opt; do
     q ) QUIET=1
       ;;
     v ) VERBOSE=1
+      ;;
+    l ) LOG_TO_SYSLOG=1
       ;;
     d ) DRYRUN=1
       ;;
