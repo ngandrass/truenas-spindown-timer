@@ -532,7 +532,12 @@ function get_drive_timeouts() {
 function main() {
     log_verbose "Running HDD Spindown Timer version $VERSION"
     if [[ $DRYRUN -eq 1 ]]; then log "Performing a dry run..."; fi
-    if [[ $ONESHOT_MODE -eq 1 ]]; then log "Running in one shot mode... Notice: Timeout (-t) value will be ignored. Using poll time (-p) instead."; fi
+
+    # Setup one shot mode, if selected
+    if [[ $ONESHOT_MODE -eq 1 ]]; then
+        TIMEOUT=$POLL_TIME
+        log "Running in one shot mode... Notice: Timeout (-t) value will be ignored. Using poll time (-p) instead.";
+    fi
 
     # Verify operation mode
     if [ "$OPERATION_MODE" != "disk" ] && [ "$OPERATION_MODE" != "zpool" ]; then
@@ -564,11 +569,7 @@ function main() {
     # Init timeout counters for all monitored drives
     declare -A DRIVE_TIMEOUTS
     for drive in $(get_drives); do
-        if [[ $ONESHOT_MODE -eq 1 ]]; then
-            DRIVE_TIMEOUTS[$drive]=${POLL_TIME}
-        else
-            DRIVE_TIMEOUTS[$drive]=${TIMEOUT}
-        fi
+        DRIVE_TIMEOUTS[$drive]=${TIMEOUT}
     done
     log_verbose "$(get_drive_timeouts)"
     
