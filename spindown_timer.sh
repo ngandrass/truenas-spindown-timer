@@ -117,10 +117,10 @@ EOF
 }
 
 ##
-# Writes argument $1 to stdout if $QUIET is not set
+# Writes argument $1 to stdout/syslog if $QUIET is not set
 #
 # Arguments:
-#   $1 Message to write to stdout
+#   $1 Message to write to stdout/syslog
 ##
 function log() {
     if [[ $QUIET -eq 0 ]]; then
@@ -133,32 +133,26 @@ function log() {
 }
 
 ##
-# Writes argument $1 to stdout if $VERBOSE is set and $QUIET is not set
+# Writes argument $1 to stdout/syslog if $VERBOSE is set and $QUIET is not set
 #
 # Arguments:
-#   $1 Message to write to stdout
+#   $1 Message to write to stdout/syslog
 ##
 function log_verbose() {
     if [[ $VERBOSE -eq 1 ]]; then
-        if [[ $QUIET -eq 0 ]]; then
-            if [[ $LOG_TO_SYSLOG -eq 1 ]]; then
-                echo "$1" | logger -i -t "spindown_timer"
-            else
-                echo "[$(date '+%F %T')] $1"
-            fi
-        fi
+        log "$1"
     fi
 }
 
 ##
-# Writes argument $1 to stderr. Ignores $QUIET.
+# Writes argument $1 to stderr/syslog. Ignores $QUIET.
 #
 # Arguments:
-#   $1 Message to write to stderr
+#   $1 Message to write to stderr/syslog
 ##
 function log_error() {
     if [[ $LOG_TO_SYSLOG -eq 1 ]]; then
-        echo "$1" | logger -i -t "spindown_timer"
+        echo "[ERROR]: $1" | logger -i -t "spindown_timer"
     else
         >&2 echo "[$(date '+%F %T')] [ERROR]: $1"
     fi
