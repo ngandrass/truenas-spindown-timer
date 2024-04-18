@@ -246,7 +246,7 @@ function register_drive() {
 
     local DISK_IS_ATA
     case $DISK_PARM_TOOL in
-        "camcontrol") DISK_IS_ATA=$(camcontrol identify $drive |& grep -E "^protocol(.*)ATA");;        
+        "camcontrol") DISK_IS_ATA=$(camcontrol identify $drive |& grep -E "^protocol(.*)ATA");;
         "hdparm") 
             if [ $USE_SMARTCTL -eq 1 ]; then                              
                 DISK_IS_ATA=$(smartctl -i "/dev/$drive" |& grep -E "ATA V")
@@ -568,7 +568,7 @@ function main() {
 
     # Initially identify drives to monitor
     detect_driveid_type
-    # populate_driveid_to_dev_array
+    populate_driveid_to_dev_array
     detect_drives_$OPERATION_MODE
     for drive in ${!DRIVES[@]}; do
         log_verbose "Detected drive ${drive} as ${DRIVES[$drive]} device"
@@ -601,9 +601,7 @@ function main() {
             log_verbose "All drives are spundown, Sleeping ${TIMEOUT}"
             sleep ${TIMEOUT}
             continue      
-        else
-            log_verbose "get idle drive"
-        fi        
+        fi                 
         
         local IDLE_DRIVES=$(get_idle_drives ${POLL_TIME})
         
