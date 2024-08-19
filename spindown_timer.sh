@@ -561,6 +561,12 @@ function main() {
     detect_driveid_type
     populate_driveid_to_dev_array
     detect_drives_$OPERATION_MODE
+
+    if [[ ${#DRIVES[@]} -eq 0 ]]; then
+        log_error "No drives to monitor detected. Exiting..."
+        exit 1
+    fi
+
     for drive in ${!DRIVES[@]}; do
         log_verbose "Detected drive ${drive} as ${DRIVES[$drive]} device"
     done
