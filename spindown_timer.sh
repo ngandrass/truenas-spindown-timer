@@ -347,6 +347,12 @@ function detect_drives_zpool() {
                 continue
             fi
 
+            # Skip nvme drives
+            if [[ "${DRIVEID_TO_DEV[$driveid]}" == "nvme"* ]]; then
+                log_verbose "-> Skipping NVMe drive: $driveid"
+                continue
+            fi
+
             log_verbose "-> Detected disk in pool $poolname: ${DRIVEID_TO_DEV[$driveid]} ($driveid)"
             register_drive "${DRIVEID_TO_DEV[$driveid]}"
             DRIVES_BY_POOLS[$poolname]="${DRIVES_BY_POOLS[$poolname]} ${DRIVEID_TO_DEV[$driveid]}"
