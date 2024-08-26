@@ -1,8 +1,10 @@
 # Changelog
 
-## Version x.x.x (XXXX-XX-XX)
+## Version 2.3.0 (2024-08-26)
   * Introduce syslog mode (`-l`). If set, all output is logged to syslog instead of stdout/stderr.
   * Introduce one shot mode (`-o`). If set, the script performs exactly one I/O poll interval, then immediately spins down drives that were idle for the last `POLL_TIME` seconds, and exits.
+  * Skip NVMe drives during drive detection.
+  * Exit with an error, if no drives were found during drive detection.
 
 
 ## Version 2.2.0 (2023-02-20)

@@ -26,15 +26,6 @@ This allows users to have S.M.A.R.T. reporting enabled while being able to
 automatically spin down disks. The script moreover is immune to the periodic
 disk temperature reads in newer versions of TrueNAS.
 
-Successfully tested on (most relevant):
-  * **`TrueNAS-13.0-U5.1 (Core)`**
-  * **`TrueNAS SCALE 22.12.0`**
-  * `TrueNAS-12.0 (Core)`
-  * `FreeNAS-11.3`
-
-A full list of all tested TrueNAS / FreeNAS versions can be found at the end of
-this file.
-
 
 ## Key Features
 
