@@ -389,11 +389,14 @@ function get_idle_drives() {
             IOSTAT_OUTPUT=$(iostat -x -z -d $1 2)
             case $DISK_PARM_TOOL in
                 "camcontrol")
-                    local CUT_OFFSET=$(grep -no "extended device statistics" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+') ;;
+                    local CUT_OFFSET=$(grep -no "extended device statistics" <<< "$IOSTAT_OUTPUT" | tail -n1 | cut -d: -f1)
+                    ;;
                 "hdparm")
-                    local CUT_OFFSET=$(grep -no "Device" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+') ;;
+                    local CUT_OFFSET=$(grep -no "Device" <<< "$IOSTAT_OUTPUT" | tail -n1 | cut -d: -f1)
+                    ;;
             esac
-            ACTIVE_DRIVES=$(tail -n +$((CUT_OFFSET+2)) <<< ${IOSTAT_OUTPUT} | awk '{printf $1}{printf " "}')
+            ACTIVE_DRIVES=$(sed -n "$((CUT_OFFSET+1)),\$p" <<< "$IOSTAT_OUTPUT" | cut -d' ' -f1 | tr '\n' ' ')
+            log_verbose "-> Active Drive(s): $ACTIVE_DRIVES" >&2
         ;;
         "zpool")
             # Operation mode: zpool. Detect IO using zpool iostat
