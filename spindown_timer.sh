@@ -33,24 +33,24 @@
 # ##################################################
 
 VERSION=2.3.0
-TIMEOUT=3600                                # Default timeout before considering a drive as idle
-POLL_TIME=600                               # Default time to wait during a single iostat call
-IGNORED_DRIVES=""                           # Default list of drives that are never spun down
-MANUAL_MODE=0                               # Default manual mode setting
-ONESHOT_MODE=0                              # Default for one shot mode setting
-CHECK_MODE=0                                # Default check mode setting
-QUIET=0                                     # Default quiet mode setting
-VERBOSE=0                                   # Default verbosity level
-LOG_TO_SYSLOG=0                             # Default for logging target (stdout/stderr or syslog)
-DRYRUN=0                                    # Default for dryrun option
-SHUTDOWN_TIMEOUT=0                          # Default shutdown timeout (0 == no shutdown)
-declare -A DRIVES                           # Associative array for detected drives
-declare -A ZFSPOOLS                         # Array for monitored ZFS pools
-declare -A DRIVES_BY_POOLS                  # Associative array mapping of pool names to list of disk identifiers (e.g. poolname => "ada0 ada1 ada2")
-declare -A DRIVEID_TO_DEV                   # Associative array with the drive id (e.g. GPTID) to a device identifier
-DRIVEID_TYPE=                               # Default for type used for drive IDs ('gptid' (CORE) or 'partuuid' (SCALE))
-OPERATION_MODE=disk                         # Default operation mode (disk or zpool)
-TOOLS=("camcontrol" "smartctl" "hdparm")    # List of supported DRIVE tools
+TIMEOUT=3600               # Default timeout before considering a drive as idle
+POLL_TIME=600              # Default time to wait during a single iostat call
+IGNORED_DRIVES=""          # Default list of drives that are never spun down
+MANUAL_MODE=0              # Default manual mode setting
+ONESHOT_MODE=0             # Default for one shot mode setting
+CHECK_MODE=0               # Default check mode setting
+QUIET=0                    # Default quiet mode setting
+VERBOSE=0                  # Default verbosity level
+LOG_TO_SYSLOG=0            # Default for logging target (stdout/stderr or syslog)
+DRYRUN=0                   # Default for dryrun option
+SHUTDOWN_TIMEOUT=0         # Default shutdown timeout (0 == no shutdown)
+declare -A DRIVES          # Associative array for detected drives
+declare -A ZFSPOOLS        # Array for monitored ZFS pools
+declare -A DRIVES_BY_POOLS # Associative array mapping of pool names to list of disk identifiers (e.g. poolname => "ada0 ada1 ada2")
+declare -A DRIVEID_TO_DEV  # Associative array with the drive id (e.g. GPTID) to a device identifier
+DRIVEID_TYPE=              # Default for type used for drive IDs ('gptid' (CORE) or 'partuuid' (SCALE))
+DISK_PARM_TOOL=camcontrol  # Default disk parameter tool to use (camcontrol OR hdparm)
+OPERATION_MODE=disk        # Default operation mode (disk or zpool)
 
 ##
 # Prints the help/usage message
@@ -58,7 +58,7 @@ TOOLS=("camcontrol" "smartctl" "hdparm")    # List of supported DRIVE tools
 function print_usage() {
     cat << EOF
 Usage:
-  $0 [-h] [-q] [-v] [-l] [-d] [-o] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>] [-x <MODE>]
+  $0 [-h] [-q] [-v] [-l] [-d] [-o] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
 
 Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
@@ -107,9 +107,6 @@ Options:
                  of stdout/stderr.
   -d           : Dry run. No actual spindown is performed.
   -h           : Print this help message.
-  -x TOOL      : (Optional) Specify one of the supported tools: "camcontrol",
-                "smartctl" or "hdparm". If not specified, the first available
-                tool (from left to right) will be automatically selected.
 
 Example usage:
 $0
@@ -168,24 +165,13 @@ function log_error() {
 # Return: Command to use to access disk parameters
 #
 ##
-detect_disk_parm_tool() {
-    # Check if the user input is in TOOLS
-    if [[ " ${TOOLS[@]} " =~ " ${DISK_PARM_TOOL} " ]]; then
-        # Check if the tool is available on the system
-        if which "$DISK_PARM_TOOL" &> /dev/null; then
-            echo "$DISK_PARM_TOOL"
-            return
-        else
-            log_error "$DISK_PARM_TOOL is not installed or not found."
-            exit 1
-        fi
-    fi
+function detect_disk_parm_tool() {
+    local SUPPORTED_DISK_PARM_TOOLS
+    SUPPORTED_DISK_PARM_TOOLS="camcontrol hdparm"
 
-    # If the user input is not available/valid
-    for tool in "${TOOLS[@]}"; do
-        if which "$tool" &> /dev/null; then
-            # Return the first available tool
-            echo "$tool"
+    for tool in ${SUPPORTED_DISK_PARM_TOOLS}; do
+        if [[ -n $(which ${tool}) ]]; then
+            echo "${tool}"
             return
         fi
     done
@@ -268,7 +254,6 @@ function register_drive() {
     case $DISK_PARM_TOOL in
         "camcontrol") DISK_IS_ATA=$(camcontrol identify $drive |& grep -E "^protocol(.*)ATA");;
         "hdparm") DISK_IS_ATA=$(hdparm -I "/dev/$drive" |& grep -E "^ATA device");;
-        "smartctl") DISK_IS_ATA=$(smartctl -i "/dev/$drive" |& grep -E "ATA V");;
     esac
 
     if [[ -n $DISK_IS_ATA ]]; then
@@ -406,7 +391,7 @@ function get_idle_drives() {
                 "camcontrol")
                     local CUT_OFFSET=$(grep -no "extended device statistics" <<< "$IOSTAT_OUTPUT" | tail -n1 | cut -d: -f1)
                     ;;
-                "hdparm" | "smartctl")
+                "hdparm")
                     local CUT_OFFSET=$(grep -no "Device" <<< "$IOSTAT_OUTPUT" | tail -n1 | cut -d: -f1)
                     ;;
             esac
@@ -492,9 +477,6 @@ function drive_is_spinning() {
             # It is currently unknown if hdparm also needs to differentiates between ATA and SCSI drives
             if [[ -z $(hdparm -C "/dev/$1" | grep 'standby') ]]; then echo 1; else echo 0; fi
         ;;
-        "smartctl")
-            if [[ -z $(smartctl --nocheck standby -i "/dev/$1" | grep -q 'Device is in STANDBY mode') ]]; then echo 1; else echo 0; fi
-        ;;
     esac
 }
 
@@ -532,9 +514,6 @@ function spindown_drive() {
                 ;;
                 "hdparm")
                     hdparm -q -y "/dev/$1"
-                ;;
-                "smartctl")
-                    smartctl --set=standby,now "/dev/$1"
                 ;;
             esac
 
@@ -660,7 +639,7 @@ function main() {
 }
 
 # Parse arguments
-while getopts ":hqvdlmoct:p:i:s:u:x:" opt; do
+while getopts ":hqvdlmoct:p:i:s:u:" opt; do
   case ${opt} in
     t ) TIMEOUT=${OPTARG}
       ;;
@@ -685,8 +664,6 @@ while getopts ":hqvdlmoct:p:i:s:u:x:" opt; do
     m ) MANUAL_MODE=1
       ;;
     u ) OPERATION_MODE=${OPTARG}
-      ;;
-    x ) DISK_PARM_TOOL=${OPTARG}
       ;;
     h ) print_usage; exit
       ;;
