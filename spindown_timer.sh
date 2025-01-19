@@ -562,8 +562,9 @@ function main() {
     log_verbose "Running HDD Spindown Timer version $VERSION"
     if [[ $DRYRUN -eq 1 ]]; then log "Performing a dry run..."; fi
 
-    # Detect host platform
+    # Detect host platform and user
     detect_host_platform
+    log_verbose "Running as user: $(whoami) (UID: $(id -u))"
 
     # Setup one shot mode, if selected
     if [[ $ONESHOT_MODE -eq 1 ]]; then
