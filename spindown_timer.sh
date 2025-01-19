@@ -637,7 +637,10 @@ function main() {
                 SHUTDOWN_COUNTER=$((SHUTDOWN_COUNTER - POLL_TIME))
                 if [[ ! ${SHUTDOWN_COUNTER} -gt 0 ]]; then
                     log_verbose "Shutting down system"
-                    shutdown -p now
+                    case $HOST_PLATFORM in
+                        "FreeBSD") shutdown -p now ;;
+                        *) shutdown -h now ;;
+                    esac
                 fi
             else
                 SHUTDOWN_COUNTER=${SHUTDOWN_TIMEOUT}
