@@ -48,6 +48,7 @@ declare -A DRIVES          # Associative array for detected drives
 declare -A ZFSPOOLS        # Array for monitored ZFS pools
 declare -A DRIVES_BY_POOLS # Associative array mapping of pool names to list of disk identifiers (e.g. poolname => "ada0 ada1 ada2")
 declare -A DRIVEID_TO_DEV  # Associative array with the drive id (e.g. GPTID) to a device identifier
+HOST_PLATFORM=             # Detected type of the host os (FreeBSD for TrueNAS CORE or Linux for TrueNAS SCALE)
 DRIVEID_TYPE=              # Default for type used for drive IDs ('gptid' (CORE) or 'partuuid' (SCALE))
 DISK_PARM_TOOL=camcontrol  # Default disk parameter tool to use (camcontrol OR hdparm)
 OPERATION_MODE=disk        # Default operation mode (disk or zpool)
@@ -156,6 +157,23 @@ function log_error() {
     else
         >&2 echo "[$(date '+%F %T')] [ERROR]: $1"
     fi
+}
+
+##
+# Detects the host platform (FreeBSD (TrueNAS CORE) or Linux (TrueNAS SCALE))
+##
+function detect_host_platform() {
+    if [[ "$(uname)" == "Linux" ]]; then
+        HOST_PLATFORM=Linux
+    elif [[ "$(uname)" == "FreeBSD" ]]; then
+        HOST_PLATFORM=FreeBSD
+    else
+        log_error "Unsupported host OS type: $(uname). Assuming Linux for now ..."
+        HOST_PLATFORM=Linux
+        return
+    fi
+
+    log_verbose "Detected host OS type: $HOST_PLATFORM"
 }
 
 ##
@@ -538,6 +556,9 @@ function get_drive_timeouts() {
 function main() {
     log_verbose "Running HDD Spindown Timer version $VERSION"
     if [[ $DRYRUN -eq 1 ]]; then log "Performing a dry run..."; fi
+
+    # Detect host platform
+    detect_host_platform
 
     # Setup one shot mode, if selected
     if [[ $ONESHOT_MODE -eq 1 ]]; then
