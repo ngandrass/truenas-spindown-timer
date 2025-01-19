@@ -405,15 +405,17 @@ function get_idle_drives() {
         "disk")
             # Operation mode: disk. Detect IO using iostat
             IOSTAT_OUTPUT=$(iostat -x -z -d $1 2)
-            case $DISK_PARM_TOOL in
-                "camcontrol")
+            case $HOST_PLATFORM in
+                "FreeBSD")
                     local CUT_OFFSET=$(grep -no "extended device statistics" <<< "$IOSTAT_OUTPUT" | tail -n1 | cut -d: -f1)
+                    CUT_OFFSET=$((CUT_OFFSET+2))
                     ;;
-                "hdparm")
+                "Linux")
                     local CUT_OFFSET=$(grep -no "Device" <<< "$IOSTAT_OUTPUT" | tail -n1 | cut -d: -f1)
+                    CUT_OFFSET=$((CUT_OFFSET+1))
                     ;;
             esac
-            ACTIVE_DRIVES=$(sed -n "$((CUT_OFFSET+1)),\$p" <<< "$IOSTAT_OUTPUT" | cut -d' ' -f1 | tr '\n' ' ')
+            ACTIVE_DRIVES=$(sed -n "${CUT_OFFSET},\$p" <<< "$IOSTAT_OUTPUT" | cut -d' ' -f1 | tr '\n' ' ')
             log_verbose "-> Active Drive(s): $ACTIVE_DRIVES" >&2
         ;;
         "zpool")
