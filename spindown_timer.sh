@@ -59,7 +59,7 @@ DISK_PARM_TOOL=                             # Disk control tool to use (camcontr
 function print_usage() {
     cat << EOF
 Usage:
-  $0 [-h] [-q] [-v] [-l] [-d] [-o] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>] [-x <MODE>]
+  $0 [-h] [-q] [-v] [-l] [-d] [-o] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>] [-x <TOOL>]
 
 Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
@@ -108,9 +108,10 @@ Options:
                  of stdout/stderr.
   -d           : Dry run. No actual spindown is performed.
   -h           : Print this help message.
-  -x TOOL      : (Optional) Specify one of the supported tools: "camcontrol",
-                "smartctl" or "hdparm". If not specified, the first available
-                tool (from left to right) will be automatically selected.
+  -x TOOL      : Forces use of a specifiy tool for disk control.
+                 Supported tools are: "camcontrol", "hdparm", and "smartctl".
+                 If not specified, the first available tool (from left to right)
+                 will be automatically selected.
 
 Example usage:
 $0
