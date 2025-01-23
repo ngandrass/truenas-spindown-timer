@@ -4,6 +4,7 @@
   * Fix shutdown mode on TrueNAS SCALE
   * Improve host system detection to distinguish between TrueNAS CORE and TrueNAS SCALE
   * Simplify active drive detection
+  * Skip drive I/O detection loop if all monitored drives are already sleeping
 
 
 ## Version 2.3.0 (2024-08-26)
