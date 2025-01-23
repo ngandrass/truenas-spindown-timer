@@ -203,6 +203,12 @@ detect_disk_ctrl_tool() {
         fi
     fi
 
+    # Do not perform autodetect if user explicit specified a tool that is not available
+    if [[ -n $DISK_CTRL_TOOL ]]; then
+        log_error "Unsupported disk control tool: $DISK_CTRL_TOOL"
+        return
+    fi
+
     # Auto-detect available tools if no specific tool was given by the user
     for tool in "${SUPPORTED_DISK_CTRL_TOOLS[@]}"; do
         if which "$tool" &> /dev/null; then
