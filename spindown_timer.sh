@@ -98,7 +98,6 @@ Options:
   -v           : Verbose mode. Prints additional information during execution.
   -d           : Dry run. No actual spindown is performed.
   -h           : Print this help message.
-  -r           : Use Smartctl instead of hdparm for -C, -I
 
 Example usage:
 $0
@@ -420,23 +419,6 @@ function all_drives_are_idle() {
     return 0
 }
 
-
-function all_drives_spundown() {    
-    local DRIVES=" $(get_drives) "
-
-    for drive in ${DRIVES}; do
-        if [[ $(drive_is_spinning "$drive") -eq 1 ]]; then
-            return 1
-        fi 
-    done
-
-    return 0
-}
-
-
- 
-
-
 ##
 # Determines whether the given drive $1 understands ATA commands
 #
@@ -472,6 +454,21 @@ function drive_is_spinning() {
             if [[ -z $(hdparm -C "/dev/$1" | grep 'standby') ]]; then echo 1; else echo 0; fi
         ;;
     esac
+}
+
+##
+# Determines if all monitored drives are currently spun down
+##
+function all_monitored_drives_are_spun_down() {
+    for drive in "${!DRIVE_TIMEOUTS[@]}"; do
+        if [[ $(drive_is_spinning "$drive") -eq 1 ]]; then
+            echo 0
+            return
+        fi
+    done
+
+    echo 1
+    return
 }
 
 ##
@@ -578,13 +575,13 @@ function main() {
         if [ $CHECK_MODE -eq 1 ]; then
             print_drive_power_states
         fi
-        
-        if all_drives_spundown; then
-            log_verbose "All drives are spundown, Sleeping ${TIMEOUT}"
+
+        if all_monitored_drives_are_spun_down; then
+            log_verbose "All monitored drives are already spun down, sleeping ${TIMEOUT} seconds ..."
             sleep ${TIMEOUT}
-            continue      
-        fi                 
-        
+            continue
+        fi
+
         local IDLE_DRIVES=$(get_idle_drives ${POLL_TIME})
 
         for drive in "${!DRIVE_TIMEOUTS[@]}"; do
@@ -599,7 +596,6 @@ function main() {
                 DRIVE_TIMEOUTS[$drive]=${TIMEOUT}
             fi
         done
-
 
         log_verbose "$(get_drive_timeouts)"
         
