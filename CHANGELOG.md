@@ -4,6 +4,8 @@
   * Fix shutdown mode on TrueNAS SCALE
   * Improve host system detection to distinguish between TrueNAS CORE and TrueNAS SCALE
   * Simplify active drive detection
+  * Add support for using `smartctl` to interact with drives
+  * Allow selection of disk control tool (`camcontrol`, `hdparm`, `smartctl`) via CLI argument `-x`
 
 
 ## Version 2.3.0 (2024-08-26)
