@@ -1,5 +1,11 @@
 # Changelog
 
+## Version X.Y.Z (YYYY-MM-DD)
+  * Fix shutdown mode on TrueNAS SCALE
+  * Improve host system detection to distinguish between TrueNAS CORE and TrueNAS SCALE
+  * Simplify active drive detection
+
+
 ## Version 2.3.0 (2024-08-26)
   * Introduce syslog mode (`-l`). If set, all output is logged to syslog instead of stdout/stderr.
   * Introduce one shot mode (`-o`). If set, the script performs exactly one I/O poll interval, then immediately spins down drives that were idle for the last `POLL_TIME` seconds, and exits.

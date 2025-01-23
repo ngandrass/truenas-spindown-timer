@@ -11,7 +11,7 @@
 #
 # MIT License
 # 
-# Copyright (c) 2023 Niels Gandraß <niels@gandrass.de>
+# Copyright (c) 2025 Niels Gandraß <niels@gandrass.de>
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -48,8 +48,10 @@ declare -A DRIVES                           # Associative array for detected dri
 declare -A ZFSPOOLS                         # Array for monitored ZFS pools
 declare -A DRIVES_BY_POOLS                  # Associative array mapping of pool names to list of disk identifiers (e.g. poolname => "ada0 ada1 ada2")
 declare -A DRIVEID_TO_DEV                   # Associative array with the drive id (e.g. GPTID) to a device identifier
+HOST_PLATFORM=                              # Detected type of the host os (FreeBSD for TrueNAS CORE or Linux for TrueNAS SCALE)
 DRIVEID_TYPE=                               # Default for type used for drive IDs ('gptid' (CORE) or 'partuuid' (SCALE))
 OPERATION_MODE=disk                         # Default operation mode (disk or zpool)
+DISK_PARM_TOOL=camcontrol                   # Default disk parameter tool to use (camcontrol OR hdparm)
 TOOLS=("camcontrol" "smartctl" "hdparm")    # List of supported DRIVE tools
 
 ##
@@ -159,6 +161,23 @@ function log_error() {
     else
         >&2 echo "[$(date '+%F %T')] [ERROR]: $1"
     fi
+}
+
+##
+# Detects the host platform (FreeBSD (TrueNAS CORE) or Linux (TrueNAS SCALE))
+##
+function detect_host_platform() {
+    if [[ "$(uname)" == "Linux" ]]; then
+        HOST_PLATFORM=Linux
+    elif [[ "$(uname)" == "FreeBSD" ]]; then
+        HOST_PLATFORM=FreeBSD
+    else
+        log_error "Unsupported host OS type: $(uname). Assuming Linux for now ..."
+        HOST_PLATFORM=Linux
+        return
+    fi
+
+    log_verbose "Detected host OS type: $HOST_PLATFORM"
 }
 
 ##
@@ -402,15 +421,17 @@ function get_idle_drives() {
         "disk")
             # Operation mode: disk. Detect IO using iostat
             IOSTAT_OUTPUT=$(iostat -x -z -d $1 2)
-            case $DISK_PARM_TOOL in
-                "camcontrol")
+            case $HOST_PLATFORM in
+                "FreeBSD")
                     local CUT_OFFSET=$(grep -no "extended device statistics" <<< "$IOSTAT_OUTPUT" | tail -n1 | cut -d: -f1)
+                    CUT_OFFSET=$((CUT_OFFSET+2))
                     ;;
-                "hdparm" | "smartctl")
+                "Linux")
                     local CUT_OFFSET=$(grep -no "Device" <<< "$IOSTAT_OUTPUT" | tail -n1 | cut -d: -f1)
+                    CUT_OFFSET=$((CUT_OFFSET+1))
                     ;;
             esac
-            ACTIVE_DRIVES=$(sed -n "$((CUT_OFFSET+1)),\$p" <<< "$IOSTAT_OUTPUT" | cut -d' ' -f1 | tr '\n' ' ')
+            ACTIVE_DRIVES=$(sed -n "${CUT_OFFSET},\$p" <<< "$IOSTAT_OUTPUT" | cut -d' ' -f1 | tr '\n' ' ')
             log_verbose "-> Active Drive(s): $ACTIVE_DRIVES" >&2
         ;;
         "zpool")
@@ -563,6 +584,10 @@ function main() {
     log_verbose "Running HDD Spindown Timer version $VERSION"
     if [[ $DRYRUN -eq 1 ]]; then log "Performing a dry run..."; fi
 
+    # Detect host platform and user
+    detect_host_platform
+    log_verbose "Running as user: $(whoami) (UID: $(id -u))"
+
     # Setup one shot mode, if selected
     if [[ $ONESHOT_MODE -eq 1 ]]; then
         TIMEOUT=$POLL_TIME
@@ -640,7 +665,10 @@ function main() {
                 SHUTDOWN_COUNTER=$((SHUTDOWN_COUNTER - POLL_TIME))
                 if [[ ! ${SHUTDOWN_COUNTER} -gt 0 ]]; then
                     log_verbose "Shutting down system"
-                    shutdown -p now
+                    case $HOST_PLATFORM in
+                        "FreeBSD") shutdown -p now ;;
+                        *) shutdown -h now ;;
+                    esac
                 fi
             else
                 SHUTDOWN_COUNTER=${SHUTDOWN_TIMEOUT}
