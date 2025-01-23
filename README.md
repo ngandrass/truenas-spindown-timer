@@ -26,15 +26,6 @@ This allows users to have S.M.A.R.T. reporting enabled while being able to
 automatically spin down disks. The script moreover is immune to the periodic
 disk temperature reads in newer versions of TrueNAS.
 
-Successfully tested on (most relevant):
-  * **`TrueNAS-13.0-U5.1 (Core)`**
-  * **`TrueNAS SCALE 22.12.0`**
-  * `TrueNAS-12.0 (Core)`
-  * `FreeNAS-11.3`
-
-A full list of all tested TrueNAS / FreeNAS versions can be found at the end of
-this file.
-
 
 ## Key Features
 
@@ -56,7 +47,7 @@ this file.
 
 ```
 Usage:
-  spindown_timer.sh [-h] [-q] [-v] [-d] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
+  spindown_timer.sh [-h] [-q] [-v] [-l] [-d] [-o] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
 
 Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
@@ -92,8 +83,17 @@ Options:
                  CAUTION: This inverts the -i option, which can then be used to
                  manually supply drives or zfs pools to monitor. All other drives
                  or zfs pools will be ignored.
+  -o           : One shot mode. If set, the script performs exactly one I/O poll
+                 interval, then immediately spins down drives that were idle for
+                 the last <POLL_TIME> seconds, and exits. This option ignores
+                 <TIMEOUT>. It can be useful, if you want to invoke to script
+                 via cron.
+  -c           : Check mode. Outputs drive power state after each POLL_TIME
+                 seconds.
   -q           : Quiet mode. Outputs are suppressed set.
   -v           : Verbose mode. Prints additional information during execution.
+  -l           : Syslog logging. If set, all output is logged to syslog instead
+                 of stdout/stderr.
   -d           : Dry run. No actual spindown is performed.
   -h           : Print this help message.
 
@@ -326,6 +326,21 @@ standby):
 To start all required spindown timer instances you can simply create multiple
 `Post Init Scripts`, as described above in the Section [Automatic start at
 boot](#automatic-start-at-boot).
+
+
+### One shot mode [-o]
+
+In one shot mode, the script performs exactly one single I/O poll interval, then
+immediately spins down drives that were idle for the last `POLL_TIME` seconds,
+and exits. No continuous monitoring is performed in this mode.
+
+This option ignores any specified `TIMEOUT` value. It can be useful, if you want
+to invoke the script via `cron` to spin down drives at only specific times of the day.
+
+Notice: Make sure to have **only one instance of the spindown script running**
+for one set of disks at the same time. Otherwise, the script instances could
+interfere with each other and cause unexpected spin ups/downs. In other words:
+Make sure that your cron job triggers not faster than your `POLL_TIME` value.
 
 
 ### Automatic system shutdown [-s TIMEOUT]

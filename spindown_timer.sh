@@ -4,14 +4,14 @@
 # TrueNAS HDD Spindown Timer
 # Monitors drive I/O and forces HDD spindown after a given idle period.
 #
-# Version: 2.2.0
+# Version: 2.3.0
 #
 # See: https://github.com/ngandrass/truenas-spindown-timer
 #
 #
 # MIT License
 # 
-# Copyright (c) 2023 Niels Gandraß <niels@gandrass.de>
+# Copyright (c) 2025 Niels Gandraß <niels@gandrass.de>
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -32,20 +32,23 @@
 # SOFTWARE.
 # ##################################################
 
-VERSION=2.2.0
+VERSION=2.3.0
 TIMEOUT=3600               # Default timeout before considering a drive as idle
 POLL_TIME=600              # Default time to wait during a single iostat call
 IGNORED_DRIVES=""          # Default list of drives that are never spun down
 MANUAL_MODE=0              # Default manual mode setting
+ONESHOT_MODE=0             # Default for one shot mode setting
 CHECK_MODE=0               # Default check mode setting
 QUIET=0                    # Default quiet mode setting
 VERBOSE=0                  # Default verbosity level
+LOG_TO_SYSLOG=0            # Default for logging target (stdout/stderr or syslog)
 DRYRUN=0                   # Default for dryrun option
 SHUTDOWN_TIMEOUT=0         # Default shutdown timeout (0 == no shutdown)
 declare -A DRIVES          # Associative array for detected drives
 declare -A ZFSPOOLS        # Array for monitored ZFS pools
 declare -A DRIVES_BY_POOLS # Associative array mapping of pool names to list of disk identifiers (e.g. poolname => "ada0 ada1 ada2")
 declare -A DRIVEID_TO_DEV  # Associative array with the drive id (e.g. GPTID) to a device identifier
+HOST_PLATFORM=             # Detected type of the host os (FreeBSD for TrueNAS CORE or Linux for TrueNAS SCALE)
 DRIVEID_TYPE=              # Default for type used for drive IDs ('gptid' (CORE) or 'partuuid' (SCALE))
 DISK_PARM_TOOL=camcontrol  # Default disk parameter tool to use (camcontrol OR hdparm)
 OPERATION_MODE=disk        # Default operation mode (disk or zpool)
@@ -56,7 +59,7 @@ OPERATION_MODE=disk        # Default operation mode (disk or zpool)
 function print_usage() {
     cat << EOF
 Usage:
-  $0 [-h] [-q] [-v] [-d] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
+  $0 [-h] [-q] [-v] [-l] [-d] [-o] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
 
 Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
@@ -92,10 +95,17 @@ Options:
                  CAUTION: This inverts the -i option, which can then be used to
                  manually supply drives or zfs pools to monitor. All other drives
                  or zfs pools will be ignored.
+  -o           : One shot mode. If set, the script performs exactly one I/O poll
+                 interval, then immediately spins down drives that were idle for
+                 the last <POLL_TIME> seconds, and exits. This option ignores
+                 <TIMEOUT>. It can be useful, if you want to invoke to script
+                 via cron.
   -c           : Check mode. Outputs drive power state after each POLL_TIME
                  seconds.
   -q           : Quiet mode. Outputs are suppressed set.
   -v           : Verbose mode. Prints additional information during execution.
+  -l           : Syslog logging. If set, all output is logged to syslog instead
+                 of stdout/stderr.
   -d           : Dry run. No actual spindown is performed.
   -h           : Print this help message.
 
@@ -108,39 +118,62 @@ EOF
 }
 
 ##
-# Writes argument $1 to stdout if $QUIET is not set
+# Writes argument $1 to stdout/syslog if $QUIET is not set
 #
 # Arguments:
-#   $1 Message to write to stdout
+#   $1 Message to write to stdout/syslog
 ##
 function log() {
     if [[ $QUIET -eq 0 ]]; then
-        echo "[$(date '+%F %T')] $1"
-    fi
-}
-
-##
-# Writes argument $1 to stdout if $VERBOSE is set and $QUIET is not set
-#
-# Arguments:
-#   $1 Message to write to stdout
-##
-function log_verbose() {
-    if [[ $VERBOSE -eq 1 ]]; then
-        if [[ $QUIET -eq 0 ]]; then
+        if [[ $LOG_TO_SYSLOG -eq 1 ]]; then
+            echo "$1" | logger -i -t "spindown_timer"
+        else
             echo "[$(date '+%F %T')] $1"
         fi
     fi
 }
 
 ##
-# Writes argument $1 to stderr. Ignores $QUIET.
+# Writes argument $1 to stdout/syslog if $VERBOSE is set and $QUIET is not set
 #
 # Arguments:
-#   $1 Message to write to stderr
+#   $1 Message to write to stdout/syslog
+##
+function log_verbose() {
+    if [[ $VERBOSE -eq 1 ]]; then
+        log "$1"
+    fi
+}
+
+##
+# Writes argument $1 to stderr/syslog. Ignores $QUIET.
+#
+# Arguments:
+#   $1 Message to write to stderr/syslog
 ##
 function log_error() {
-    >&2 echo "[$(date '+%F %T')] [ERROR]: $1"
+    if [[ $LOG_TO_SYSLOG -eq 1 ]]; then
+        echo "[ERROR]: $1" | logger -i -t "spindown_timer"
+    else
+        >&2 echo "[$(date '+%F %T')] [ERROR]: $1"
+    fi
+}
+
+##
+# Detects the host platform (FreeBSD (TrueNAS CORE) or Linux (TrueNAS SCALE))
+##
+function detect_host_platform() {
+    if [[ "$(uname)" == "Linux" ]]; then
+        HOST_PLATFORM=Linux
+    elif [[ "$(uname)" == "FreeBSD" ]]; then
+        HOST_PLATFORM=FreeBSD
+    else
+        log_error "Unsupported host OS type: $(uname). Assuming Linux for now ..."
+        HOST_PLATFORM=Linux
+        return
+    fi
+
+    log_verbose "Detected host OS type: $HOST_PLATFORM"
 }
 
 ##
@@ -332,6 +365,12 @@ function detect_drives_zpool() {
                 continue
             fi
 
+            # Skip nvme drives
+            if [[ "${DRIVEID_TO_DEV[$driveid]}" == "nvme"* ]]; then
+                log_verbose "-> Skipping NVMe drive: $driveid"
+                continue
+            fi
+
             log_verbose "-> Detected disk in pool $poolname: ${DRIVEID_TO_DEV[$driveid]} ($driveid)"
             register_drive "${DRIVEID_TO_DEV[$driveid]}"
             DRIVES_BY_POOLS[$poolname]="${DRIVES_BY_POOLS[$poolname]} ${DRIVEID_TO_DEV[$driveid]}"
@@ -366,13 +405,18 @@ function get_idle_drives() {
         "disk")
             # Operation mode: disk. Detect IO using iostat
             IOSTAT_OUTPUT=$(iostat -x -z -d $1 2)
-            case $DISK_PARM_TOOL in
-                "camcontrol")
-                    local CUT_OFFSET=$(grep -no "extended device statistics" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+') ;;
-                "hdparm")
-                    local CUT_OFFSET=$(grep -no "Device" <<< ${IOSTAT_OUTPUT} | tail -n1 | grep -Eo '^[^:]+') ;;
+            case $HOST_PLATFORM in
+                "FreeBSD")
+                    local CUT_OFFSET=$(grep -no "extended device statistics" <<< "$IOSTAT_OUTPUT" | tail -n1 | cut -d: -f1)
+                    CUT_OFFSET=$((CUT_OFFSET+2))
+                    ;;
+                "Linux")
+                    local CUT_OFFSET=$(grep -no "Device" <<< "$IOSTAT_OUTPUT" | tail -n1 | cut -d: -f1)
+                    CUT_OFFSET=$((CUT_OFFSET+1))
+                    ;;
             esac
-            ACTIVE_DRIVES=$(tail -n +$((CUT_OFFSET+2)) <<< ${IOSTAT_OUTPUT} | awk '{printf $1}{printf " "}')
+            ACTIVE_DRIVES=$(sed -n "${CUT_OFFSET},\$p" <<< "$IOSTAT_OUTPUT" | cut -d' ' -f1 | tr '\n' ' ')
+            log_verbose "-> Active Drive(s): $ACTIVE_DRIVES" >&2
         ;;
         "zpool")
             # Operation mode: zpool. Detect IO using zpool iostat
@@ -533,6 +577,16 @@ function main() {
     log_verbose "Running HDD Spindown Timer version $VERSION"
     if [[ $DRYRUN -eq 1 ]]; then log "Performing a dry run..."; fi
 
+    # Detect host platform and user
+    detect_host_platform
+    log_verbose "Running as user: $(whoami) (UID: $(id -u))"
+
+    # Setup one shot mode, if selected
+    if [[ $ONESHOT_MODE -eq 1 ]]; then
+        TIMEOUT=$POLL_TIME
+        log "Running in one shot mode... Notice: Timeout (-t) value will be ignored. Using poll time (-p) instead.";
+    fi
+
     # Verify operation mode
     if [ "$OPERATION_MODE" != "disk" ] && [ "$OPERATION_MODE" != "zpool" ]; then
         log_error "Invalid operation mode: $OPERATION_MODE. Must be either 'disk' or 'zpool'."
@@ -549,6 +603,12 @@ function main() {
     detect_driveid_type
     populate_driveid_to_dev_array
     detect_drives_$OPERATION_MODE
+
+    if [[ ${#DRIVES[@]} -eq 0 ]]; then
+        log_error "No drives to monitor detected. Exiting..."
+        exit 1
+    fi
+
     for drive in ${!DRIVES[@]}; do
         log_verbose "Detected drive ${drive} as ${DRIVES[$drive]} device"
     done
@@ -584,6 +644,7 @@ function main() {
 
         local IDLE_DRIVES=$(get_idle_drives ${POLL_TIME})
 
+        # Update drive timeouts and spin down idle drives
         for drive in "${!DRIVE_TIMEOUTS[@]}"; do
             if [[ $IDLE_DRIVES =~ $drive ]]; then
                 DRIVE_TIMEOUTS[$drive]=$((DRIVE_TIMEOUTS[$drive] - POLL_TIME))
@@ -597,14 +658,16 @@ function main() {
             fi
         done
 
-        log_verbose "$(get_drive_timeouts)"
-        
+        # Handle shutdown timeout
         if [ ${SHUTDOWN_TIMEOUT} -gt 0 ]; then
             if all_drives_are_idle "${IDLE_DRIVES}"; then
                 SHUTDOWN_COUNTER=$((SHUTDOWN_COUNTER - POLL_TIME))
                 if [[ ! ${SHUTDOWN_COUNTER} -gt 0 ]]; then
                     log_verbose "Shutting down system"
-                    shutdown -p now
+                    case $HOST_PLATFORM in
+                        "FreeBSD") shutdown -p now ;;
+                        *) shutdown -h now ;;
+                    esac
                 fi
             else
                 SHUTDOWN_COUNTER=${SHUTDOWN_TIMEOUT}
@@ -612,11 +675,19 @@ function main() {
             log_verbose "Shutdown timeout: ${SHUTDOWN_COUNTER}"
         fi
 
+        # Handle one shot mode
+        if [[ $ONESHOT_MODE -eq 1 ]]; then
+            log_verbose "One shot mode: Exiting..."
+            exit 0
+        fi
+
+        # Log updated drive timeouts
+        log_verbose "$(get_drive_timeouts)"
     done
 }
 
 # Parse arguments
-while getopts ":hqvdmct:p:i:s:u:" opt; do
+while getopts ":hqvdlmoct:p:i:s:u:" opt; do
   case ${opt} in
     t ) TIMEOUT=${OPTARG}
       ;;
@@ -626,11 +697,15 @@ while getopts ":hqvdmct:p:i:s:u:" opt; do
       ;;
     s ) SHUTDOWN_TIMEOUT=${OPTARG}
       ;;
+    o ) ONESHOT_MODE=1
+      ;;
     c ) CHECK_MODE=1
       ;;
     q ) QUIET=1
       ;;
     v ) VERBOSE=1
+      ;;
+    l ) LOG_TO_SYSLOG=1
       ;;
     d ) DRYRUN=1
       ;;
