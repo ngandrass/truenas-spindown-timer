@@ -42,7 +42,6 @@ QUIET=0                    # Default quiet mode setting
 VERBOSE=0                  # Default verbosity level
 DRYRUN=0                   # Default for dryrun option
 SHUTDOWN_TIMEOUT=0         # Default shutdown timeout (0 == no shutdown)
-USE_SMARTCTL=0             # Default smartctl use 
 declare -A DRIVES          # Associative array for detected drives
 declare -A ZFSPOOLS        # Array for monitored ZFS pools
 declare -A DRIVES_BY_POOLS # Associative array mapping of pool names to list of disk identifiers (e.g. poolname => "ada0 ada1 ada2")
@@ -57,7 +56,7 @@ OPERATION_MODE=disk        # Default operation mode (disk or zpool)
 function print_usage() {
     cat << EOF
 Usage:
-  $0 [-h] [-q] [-v] [-d] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>] [-r]
+  $0 [-h] [-q] [-v] [-d] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
 
 Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
@@ -156,13 +155,6 @@ function detect_disk_parm_tool() {
     local SUPPORTED_DISK_PARM_TOOLS
     SUPPORTED_DISK_PARM_TOOLS="camcontrol hdparm"
 
-    if [ $USE_SMARTCTL -eq 1 ]; then              
-        if ! [[ -n $(which smartctl) ]]; then 
-            log_error "smartctl not found."
-            exit 1
-        fi
-    fi
-
     for tool in ${SUPPORTED_DISK_PARM_TOOLS}; do
         if [[ -n $(which ${tool}) ]]; then
             echo "${tool}"
@@ -247,13 +239,7 @@ function register_drive() {
     local DISK_IS_ATA
     case $DISK_PARM_TOOL in
         "camcontrol") DISK_IS_ATA=$(camcontrol identify $drive |& grep -E "^protocol(.*)ATA");;
-        "hdparm") 
-            if [ $USE_SMARTCTL -eq 1 ]; then                              
-                DISK_IS_ATA=$(smartctl -i "/dev/$drive" |& grep -E "ATA V")
-            else
-                DISK_IS_ATA=$(hdparm -I "/dev/$drive" |& grep -E "^ATA device")
-            fi
-            ;;
+        "hdparm") DISK_IS_ATA=$(hdparm -I "/dev/$drive" |& grep -E "^ATA device");;
     esac
 
     if [[ -n $DISK_IS_ATA ]]; then
@@ -483,11 +469,7 @@ function drive_is_spinning() {
         ;;
         "hdparm")
             # It is currently unknown if hdparm also needs to differentiates between ATA and SCSI drives
-            if [ $USE_SMARTCTL -eq 1 ]; then                              
-                if [[ -z $(smartctl -i -n standby "/dev/$1" | grep 'STANDBY') ]]; then echo 1; else echo 0; fi
-            else
-                if [[ -z $(hdparm -C "/dev/$1" | grep 'standby') ]]; then echo 1; else echo 0; fi
-            fi
+            if [[ -z $(hdparm -C "/dev/$1" | grep 'standby') ]]; then echo 1; else echo 0; fi
         ;;
     esac
 }
@@ -604,7 +586,7 @@ function main() {
         fi                 
         
         local IDLE_DRIVES=$(get_idle_drives ${POLL_TIME})
-        
+
         for drive in "${!DRIVE_TIMEOUTS[@]}"; do
             if [[ $IDLE_DRIVES =~ $drive ]]; then
                 DRIVE_TIMEOUTS[$drive]=$((DRIVE_TIMEOUTS[$drive] - POLL_TIME))
@@ -638,7 +620,7 @@ function main() {
 }
 
 # Parse arguments
-while getopts ":hqvdmcrt:p:i:s:u:" opt; do
+while getopts ":hqvdmct:p:i:s:u:" opt; do
   case ${opt} in
     t ) TIMEOUT=${OPTARG}
       ;;
@@ -659,8 +641,6 @@ while getopts ":hqvdmcrt:p:i:s:u:" opt; do
     m ) MANUAL_MODE=1
       ;;
     u ) OPERATION_MODE=${OPTARG}
-      ;;
-    r ) USE_SMARTCTL=1
       ;;
     h ) print_usage; exit
       ;;
