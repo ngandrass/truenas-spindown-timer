@@ -51,7 +51,7 @@ declare -A DRIVEID_TO_DEV                   # Associative array with the drive i
 HOST_PLATFORM=                              # Detected type of the host os (FreeBSD for TrueNAS CORE or Linux for TrueNAS SCALE)
 DRIVEID_TYPE=                               # Default for type used for drive IDs ('gptid' (CORE) or 'partuuid' (SCALE))
 OPERATION_MODE=disk                         # Default operation mode (disk or zpool)
-DISK_PARM_TOOL=                             # Disk control tool to use (camcontrol, hdparm, or smartctl)
+DISK_CTRL_TOOL=                             # Disk control tool to use (camcontrol, hdparm, or smartctl)
 
 ##
 # Prints the help/usage message
@@ -181,30 +181,30 @@ function detect_host_platform() {
 }
 
 ##
-# Determines which tool to access disk parameters is available. This
+# Determines which tool to control disks is available. This
 # differentiates between TrueNAS Core and TrueNAS SCALE.
 #
-# Return: Command to use to access disk parameters
+# Return: Command to use to control disks
 #
 ##
-detect_disk_parm_tool() {
-    local SUPPORTED_DISK_PARM_TOOLS
-    SUPPORTED_DISK_PARM_TOOLS=("camcontrol" "hdparm" "smartctl")
+detect_disk_ctrl_tool() {
+    local SUPPORTED_DISK_CTRL_TOOLS
+    SUPPORTED_DISK_CTRL_TOOLS=("camcontrol" "hdparm" "smartctl")
 
     # If a specific tool is given by the user (via -x), validate it
-    if [[ " ${SUPPORTED_DISK_PARAM_TOOLS[@]} " =~ " ${DISK_PARM_TOOL} " ]]; then
+    if [[ " ${SUPPORTED_DISK_CTRL_TOOLS[@]} " =~ " ${DISK_CTRL_TOOL} " ]]; then
         # Check if the tool is available on the system
-        if which "$DISK_PARM_TOOL" &> /dev/null; then
-            echo "$DISK_PARM_TOOL"
+        if which "$DISK_CTRL_TOOL" &> /dev/null; then
+            echo "$DISK_CTRL_TOOL"
             return
         else
-            log_error "$DISK_PARM_TOOL is not installed or not found."
+            log_error "$DISK_CTRL_TOOL is not installed or not found."
             exit 1
         fi
     fi
 
     # Auto-detect available tools if no specific tool was given by the user
-    for tool in "${SUPPORTED_DISK_PARAM_TOOLS[@]}"; do
+    for tool in "${SUPPORTED_DISK_CTRL_TOOLS[@]}"; do
         if which "$tool" &> /dev/null; then
             # Return the first available tool
             echo "$tool"
@@ -212,7 +212,7 @@ detect_disk_parm_tool() {
         fi
     done
 
-    log_error "No supported disk parameter tool found."
+    log_error "No supported disk control tool found."
     exit 1
 }
 
@@ -287,7 +287,7 @@ function register_drive() {
     fi
 
     local DISK_IS_ATA
-    case $DISK_PARM_TOOL in
+    case $DISK_CTRL_TOOL in
         "camcontrol") DISK_IS_ATA=$(camcontrol identify $drive |& grep -E "^protocol(.*)ATA");;
         "hdparm") DISK_IS_ATA=$(hdparm -I "/dev/$drive" |& grep -E "^ATA device");;
         "smartctl") DISK_IS_ATA=$(smartctl -i "/dev/$drive" |& grep -E "ATA V");;
@@ -499,7 +499,7 @@ function is_ata_drive() {
 #   $1 Device identifier of the drive
 ##
 function drive_is_spinning() {
-    case $DISK_PARM_TOOL in
+    case $DISK_CTRL_TOOL in
         "camcontrol")
             # camcontrol differentiates between ATA and SCSI drives
             if [[ $(is_ata_drive $1) -eq 1 ]]; then
@@ -536,7 +536,7 @@ function print_drive_power_states() {
 }
 
 ##
-# Forces the spindown of the drive specified by parameter $1 trough camcontrol
+# Forces the spindown of the drive specified by parameter $1
 #
 # Arguments:
 #   $1 Device identifier of the drive
@@ -544,7 +544,7 @@ function print_drive_power_states() {
 function spindown_drive() {
     if [[ $(drive_is_spinning $1) -eq 1 ]]; then
         if [[ $DRYRUN -eq 0 ]]; then
-            case $DISK_PARM_TOOL in
+            case $DISK_CTRL_TOOL in
                 "camcontrol")
                     if [[ $(is_ata_drive $1) -eq 1 ]]; then
                         # Spindown ATA drive
@@ -604,10 +604,10 @@ function main() {
     fi
     log_verbose "Operation mode: $OPERATION_MODE"
 
-    # Determine disk parameter tool to use
+    # Determine disk control tool to use
     # (Differentiates between TrueNaS Core and TrueNAs SCALE)
-    DISK_PARM_TOOL=$(detect_disk_parm_tool)
-    log_verbose "Using disk parameter tool: ${DISK_PARM_TOOL}"
+    DISK_CTRL_TOOL=$(detect_disk_ctrl_tool)
+    log_verbose "Using disk control tool: ${DISK_CTRL_TOOL}"
 
     # Initially identify drives to monitor
     detect_driveid_type
@@ -717,7 +717,7 @@ while getopts ":hqvdlmoct:p:i:s:u:x:" opt; do
       ;;
     u ) OPERATION_MODE=${OPTARG}
       ;;
-    x ) DISK_PARM_TOOL=${OPTARG}
+    x ) DISK_CTRL_TOOL=${OPTARG}
       ;;
     h ) print_usage; exit
       ;;
