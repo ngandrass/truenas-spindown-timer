@@ -199,7 +199,7 @@ detect_disk_ctrl_tool() {
             return
         else
             log_error "$DISK_CTRL_TOOL is not installed or not found."
-            exit 1
+            return
         fi
     fi
 
@@ -213,7 +213,7 @@ detect_disk_ctrl_tool() {
     done
 
     log_error "No supported disk control tool found."
-    exit 1
+    return
 }
 
 ##
@@ -607,6 +607,10 @@ function main() {
     # Determine disk control tool to use
     # (Differentiates between TrueNaS Core and TrueNAs SCALE)
     DISK_CTRL_TOOL=$(detect_disk_ctrl_tool)
+    if [[ -z $DISK_CTRL_TOOL ]]; then
+        log_error "No applicable control tool found. Exiting..."
+        exit 1
+    fi
     log_verbose "Using disk control tool: ${DISK_CTRL_TOOL}"
 
     # Initially identify drives to monitor
