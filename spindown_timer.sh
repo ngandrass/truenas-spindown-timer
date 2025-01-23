@@ -636,7 +636,7 @@ function main() {
             print_drive_power_states
         fi
 
-        if all_monitored_drives_are_spun_down; then
+        if [[ $(all_monitored_drives_are_spun_down) -eq 1 ]]; then
             log_verbose "All monitored drives are already spun down, sleeping ${TIMEOUT} seconds ..."
             sleep ${TIMEOUT}
             continue
