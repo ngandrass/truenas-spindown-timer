@@ -51,8 +51,7 @@ declare -A DRIVEID_TO_DEV                   # Associative array with the drive i
 HOST_PLATFORM=                              # Detected type of the host os (FreeBSD for TrueNAS CORE or Linux for TrueNAS SCALE)
 DRIVEID_TYPE=                               # Default for type used for drive IDs ('gptid' (CORE) or 'partuuid' (SCALE))
 OPERATION_MODE=disk                         # Default operation mode (disk or zpool)
-DISK_PARM_TOOL=camcontrol                   # Default disk parameter tool to use (camcontrol OR hdparm)
-TOOLS=("camcontrol" "smartctl" "hdparm")    # List of supported DRIVE tools
+DISK_PARM_TOOL=                             # Disk control tool to use (camcontrol, hdparm, or smartctl)
 
 ##
 # Prints the help/usage message
@@ -188,8 +187,11 @@ function detect_host_platform() {
 #
 ##
 detect_disk_parm_tool() {
-    # Check if the user input is in TOOLS
-    if [[ " ${TOOLS[@]} " =~ " ${DISK_PARM_TOOL} " ]]; then
+    local SUPPORTED_DISK_PARM_TOOLS
+    SUPPORTED_DISK_PARM_TOOLS=("camcontrol" "hdparm" "smartctl")
+
+    # If a specific tool is given by the user (via -x), validate it
+    if [[ " ${SUPPORTED_DISK_PARAM_TOOLS[@]} " =~ " ${DISK_PARM_TOOL} " ]]; then
         # Check if the tool is available on the system
         if which "$DISK_PARM_TOOL" &> /dev/null; then
             echo "$DISK_PARM_TOOL"
@@ -200,8 +202,8 @@ detect_disk_parm_tool() {
         fi
     fi
 
-    # If the user input is not available/valid
-    for tool in "${TOOLS[@]}"; do
+    # Auto-detect available tools if no specific tool was given by the user
+    for tool in "${SUPPORTED_DISK_PARAM_TOOLS[@]}"; do
         if which "$tool" &> /dev/null; then
             # Return the first available tool
             echo "$tool"
