@@ -33,25 +33,25 @@
 # ##################################################
 
 VERSION=2.3.0
-TIMEOUT=3600               # Default timeout before considering a drive as idle
-POLL_TIME=600              # Default time to wait during a single iostat call
-IGNORED_DRIVES=""          # Default list of drives that are never spun down
-MANUAL_MODE=0              # Default manual mode setting
-ONESHOT_MODE=0             # Default for one shot mode setting
-CHECK_MODE=0               # Default check mode setting
-QUIET=0                    # Default quiet mode setting
-VERBOSE=0                  # Default verbosity level
-LOG_TO_SYSLOG=0            # Default for logging target (stdout/stderr or syslog)
-DRYRUN=0                   # Default for dryrun option
-SHUTDOWN_TIMEOUT=0         # Default shutdown timeout (0 == no shutdown)
-declare -A DRIVES          # Associative array for detected drives
-declare -A ZFSPOOLS        # Array for monitored ZFS pools
-declare -A DRIVES_BY_POOLS # Associative array mapping of pool names to list of disk identifiers (e.g. poolname => "ada0 ada1 ada2")
-declare -A DRIVEID_TO_DEV  # Associative array with the drive id (e.g. GPTID) to a device identifier
-HOST_PLATFORM=             # Detected type of the host os (FreeBSD for TrueNAS CORE or Linux for TrueNAS SCALE)
-DRIVEID_TYPE=              # Default for type used for drive IDs ('gptid' (CORE) or 'partuuid' (SCALE))
-DISK_PARM_TOOL=camcontrol  # Default disk parameter tool to use (camcontrol OR hdparm)
-OPERATION_MODE=disk        # Default operation mode (disk or zpool)
+TIMEOUT=3600                                # Default timeout before considering a drive as idle
+POLL_TIME=600                               # Default time to wait during a single iostat call
+IGNORED_DRIVES=""                           # Default list of drives that are never spun down
+MANUAL_MODE=0                               # Default manual mode setting
+ONESHOT_MODE=0                              # Default for one shot mode setting
+CHECK_MODE=0                                # Default check mode setting
+QUIET=0                                     # Default quiet mode setting
+VERBOSE=0                                   # Default verbosity level
+LOG_TO_SYSLOG=0                             # Default for logging target (stdout/stderr or syslog)
+DRYRUN=0                                    # Default for dryrun option
+SHUTDOWN_TIMEOUT=0                          # Default shutdown timeout (0 == no shutdown)
+declare -A DRIVES                           # Associative array for detected drives
+declare -A ZFSPOOLS                         # Array for monitored ZFS pools
+declare -A DRIVES_BY_POOLS                  # Associative array mapping of pool names to list of disk identifiers (e.g. poolname => "ada0 ada1 ada2")
+declare -A DRIVEID_TO_DEV                   # Associative array with the drive id (e.g. GPTID) to a device identifier
+HOST_PLATFORM=                              # Detected type of the host os (FreeBSD for TrueNAS CORE or Linux for TrueNAS SCALE)
+DRIVEID_TYPE=                               # Default for type used for drive IDs ('gptid' (CORE) or 'partuuid' (SCALE))
+OPERATION_MODE=disk                         # Default operation mode (disk or zpool)
+DISK_CTRL_TOOL=                             # Disk control tool to use (camcontrol, hdparm, or smartctl)
 
 ##
 # Prints the help/usage message
@@ -59,7 +59,7 @@ OPERATION_MODE=disk        # Default operation mode (disk or zpool)
 function print_usage() {
     cat << EOF
 Usage:
-  $0 [-h] [-q] [-v] [-l] [-d] [-o] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
+  $0 [-h] [-q] [-v] [-l] [-d] [-o] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>] [-x <TOOL>]
 
 Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
@@ -108,6 +108,10 @@ Options:
                  of stdout/stderr.
   -d           : Dry run. No actual spindown is performed.
   -h           : Print this help message.
+  -x TOOL      : Forces use of a specifiy tool for disk control.
+                 Supported tools are: "camcontrol", "hdparm", and "smartctl".
+                 If not specified, the first available tool (from left to right)
+                 will be automatically selected.
 
 Example usage:
 $0
@@ -177,25 +181,45 @@ function detect_host_platform() {
 }
 
 ##
-# Determines which tool to access disk parameters is available. This
+# Determines which tool to control disks is available. This
 # differentiates between TrueNAS Core and TrueNAS SCALE.
 #
-# Return: Command to use to access disk parameters
+# Return: Command to use to control disks
 #
 ##
-function detect_disk_parm_tool() {
-    local SUPPORTED_DISK_PARM_TOOLS
-    SUPPORTED_DISK_PARM_TOOLS="camcontrol hdparm"
+detect_disk_ctrl_tool() {
+    local SUPPORTED_DISK_CTRL_TOOLS
+    SUPPORTED_DISK_CTRL_TOOLS=("camcontrol" "hdparm" "smartctl")
 
-    for tool in ${SUPPORTED_DISK_PARM_TOOLS}; do
-        if [[ -n $(which ${tool}) ]]; then
-            echo "${tool}"
+    # If a specific tool is given by the user (via -x), validate it
+    if [[ " ${SUPPORTED_DISK_CTRL_TOOLS[@]} " =~ " ${DISK_CTRL_TOOL} " ]]; then
+        # Check if the tool is available on the system
+        if which "$DISK_CTRL_TOOL" &> /dev/null; then
+            echo "$DISK_CTRL_TOOL"
+            return
+        else
+            log_error "$DISK_CTRL_TOOL is not installed or not found."
+            return
+        fi
+    fi
+
+    # Do not perform autodetect if user explicit specified a tool that is not available
+    if [[ -n $DISK_CTRL_TOOL ]]; then
+        log_error "Unsupported disk control tool: $DISK_CTRL_TOOL"
+        return
+    fi
+
+    # Auto-detect available tools if no specific tool was given by the user
+    for tool in "${SUPPORTED_DISK_CTRL_TOOLS[@]}"; do
+        if which "$tool" &> /dev/null; then
+            # Return the first available tool
+            echo "$tool"
             return
         fi
     done
 
-    log_error "No supported disk parameter tool found."
-    exit 1
+    log_error "No supported disk control tool found."
+    return
 }
 
 ##
@@ -269,9 +293,10 @@ function register_drive() {
     fi
 
     local DISK_IS_ATA
-    case $DISK_PARM_TOOL in
+    case $DISK_CTRL_TOOL in
         "camcontrol") DISK_IS_ATA=$(camcontrol identify $drive |& grep -E "^protocol(.*)ATA");;
         "hdparm") DISK_IS_ATA=$(hdparm -I "/dev/$drive" |& grep -E "^ATA device");;
+        "smartctl") DISK_IS_ATA=$(smartctl -i "/dev/$drive" |& grep -E "ATA V");;
     esac
 
     if [[ -n $DISK_IS_ATA ]]; then
@@ -480,7 +505,7 @@ function is_ata_drive() {
 #   $1 Device identifier of the drive
 ##
 function drive_is_spinning() {
-    case $DISK_PARM_TOOL in
+    case $DISK_CTRL_TOOL in
         "camcontrol")
             # camcontrol differentiates between ATA and SCSI drives
             if [[ $(is_ata_drive $1) -eq 1 ]]; then
@@ -496,6 +521,9 @@ function drive_is_spinning() {
         "hdparm")
             # It is currently unknown if hdparm also needs to differentiates between ATA and SCSI drives
             if [[ -z $(hdparm -C "/dev/$1" | grep 'standby') ]]; then echo 1; else echo 0; fi
+        ;;
+        "smartctl")
+            if [[ -z $(smartctl --nocheck standby -i "/dev/$1" | grep -q 'Device is in STANDBY mode') ]]; then echo 1; else echo 0; fi
         ;;
     esac
 }
@@ -514,7 +542,7 @@ function print_drive_power_states() {
 }
 
 ##
-# Forces the spindown of the drive specified by parameter $1 trough camcontrol
+# Forces the spindown of the drive specified by parameter $1
 #
 # Arguments:
 #   $1 Device identifier of the drive
@@ -522,7 +550,7 @@ function print_drive_power_states() {
 function spindown_drive() {
     if [[ $(drive_is_spinning $1) -eq 1 ]]; then
         if [[ $DRYRUN -eq 0 ]]; then
-            case $DISK_PARM_TOOL in
+            case $DISK_CTRL_TOOL in
                 "camcontrol")
                     if [[ $(is_ata_drive $1) -eq 1 ]]; then
                         # Spindown ATA drive
@@ -534,6 +562,9 @@ function spindown_drive() {
                 ;;
                 "hdparm")
                     hdparm -q -y "/dev/$1"
+                ;;
+                "smartctl")
+                    smartctl --set=standby,now "/dev/$1"
                 ;;
             esac
 
@@ -579,10 +610,14 @@ function main() {
     fi
     log_verbose "Operation mode: $OPERATION_MODE"
 
-    # Determine disk parameter tool to use
+    # Determine disk control tool to use
     # (Differentiates between TrueNaS Core and TrueNAs SCALE)
-    DISK_PARM_TOOL=$(detect_disk_parm_tool)
-    log_verbose "Using disk parameter tool: ${DISK_PARM_TOOL}"
+    DISK_CTRL_TOOL=$(detect_disk_ctrl_tool)
+    if [[ -z $DISK_CTRL_TOOL ]]; then
+        log_error "No applicable control tool found. Exiting..."
+        exit 1
+    fi
+    log_verbose "Using disk control tool: ${DISK_CTRL_TOOL}"
 
     # Initially identify drives to monitor
     detect_driveid_type
@@ -666,7 +701,7 @@ function main() {
 }
 
 # Parse arguments
-while getopts ":hqvdlmoct:p:i:s:u:" opt; do
+while getopts ":hqvdlmoct:p:i:s:u:x:" opt; do
   case ${opt} in
     t ) TIMEOUT=${OPTARG}
       ;;
@@ -691,6 +726,8 @@ while getopts ":hqvdlmoct:p:i:s:u:" opt; do
     m ) MANUAL_MODE=1
       ;;
     u ) OPERATION_MODE=${OPTARG}
+      ;;
+    x ) DISK_CTRL_TOOL=${OPTARG}
       ;;
     h ) print_usage; exit
       ;;
