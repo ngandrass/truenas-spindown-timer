@@ -529,6 +529,21 @@ function drive_is_spinning() {
 }
 
 ##
+# Determines if all monitored drives are currently spun down
+##
+function all_monitored_drives_are_spun_down() {
+    for drive in "${!DRIVE_TIMEOUTS[@]}"; do
+        if [[ $(drive_is_spinning "$drive") -eq 1 ]]; then
+            echo 0
+            return
+        fi
+    done
+
+    echo 1
+    return
+}
+
+##
 # Prints the power state of all monitored drives
 ##
 function print_drive_power_states() {
@@ -654,6 +669,12 @@ function main() {
     while true; do
         if [ $CHECK_MODE -eq 1 ]; then
             print_drive_power_states
+        fi
+
+        if [[ $(all_monitored_drives_are_spun_down) -eq 1 ]]; then
+            log_verbose "All monitored drives are already spun down, sleeping ${TIMEOUT} seconds ..."
+            sleep ${TIMEOUT}
+            continue
         fi
 
         local IDLE_DRIVES=$(get_idle_drives ${POLL_TIME})
