@@ -47,7 +47,7 @@ disk temperature reads in newer versions of TrueNAS.
 
 ```
 Usage:
-  spindown_timer.sh [-h] [-q] [-v] [-l] [-d] [-o] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>]
+  $0 [-h] [-q] [-v] [-l] [-d] [-o] [-c] [-m] [-u <MODE>] [-t <TIMEOUT>] [-p <POLL_TIME>] [-i <DRIVE>] [-s <TIMEOUT>] [-x <TOOL>]
 
 Monitors drive I/O and forces HDD spindown after a given idle period.
 Resistant to S.M.A.R.T. reads.
@@ -96,13 +96,16 @@ Options:
                  of stdout/stderr.
   -d           : Dry run. No actual spindown is performed.
   -h           : Print this help message.
+  -x TOOL      : Forces use of a specifiy tool for disk control.
+                 Supported tools are: "camcontrol", "hdparm", and "smartctl".
+                 If not specified, the first available tool (from left to right)
+                 will be automatically selected.
 
 Example usage:
-spindown_timer.sh
-spindown_timer.sh -q -t 3600 -p 600 -i ada0 -i ada1
-spindown_timer.sh -q -m -i ada6 -i ada7 -i da0
-spindown_timer.sh -u zpool -i freenas-boot
-
+$0
+$0 -q -t 3600 -p 600 -i ada0 -i ada1
+$0 -q -m -i ada6 -i ada7 -i da0
+$0 -u zpool -i freenas-boot
 ```
 
 ## Deployment and configuration
