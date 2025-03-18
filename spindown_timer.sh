@@ -305,6 +305,25 @@ function register_drive() {
         DRIVES[$drive]="SCSI"
     fi
 }
+##
+# Determines whether the given drive $1 is a rotational drive, to skip spindown
+#
+# Arguments:
+#   $1 Device identifier of the drive
+##
+function is_rotational_drive() {
+    case $HOST_PLATFORM in
+        "FreeBSD")
+            case $(diskinfo -v "$1" | grep TRIM | awk '{print $1}') in
+                '[Yy]es') echo 0 ;;
+                '[Nn]o') echo 1 ;;
+            esac
+            ;;
+        "Linux")
+            cat "/sys/block/${1}/queue/rotational"
+            ;;
+    esac
+}
 
 ##
 # Detects all connected drives using plain iostat method and whether they are
@@ -326,12 +345,18 @@ function detect_drives_disk() {
         # Remove ignored drives
         for drive in ${IGNORED_DRIVES[@]}; do
             DRIVE_IDS=`sed "s/ ${drive} / /g" <<< ${DRIVE_IDS}`
-        done
+        done        
     fi
 
     # Detect protocol type (ATA or SCSI) for each drive and populate $DRIVES array
     for drive in ${DRIVE_IDS}; do
-        register_drive "$drive"
+        # Skip non-rotational drives
+        if [[ $(is_rotational_drive $drive) -eq 0 ]]; then
+            log_verbose "-> Detected disk : $drive"
+            register_drive "$drive"
+        else
+            log_verbose "-> Skipping non-rotational drive : $drive"
+        fi
     done
 }
 
@@ -389,11 +414,14 @@ function detect_drives_zpool() {
             if [ -z "$driveid" ]; then
                 continue
             fi
-
             # Skip nvme drives
             if [[ "${DRIVEID_TO_DEV[$driveid]}" == "nvme"* ]]; then
                 log_verbose "-> Skipping NVMe drive: $driveid"
                 continue
+            fi
+            # Skip non-rotational drive
+            if [[ $(is_rotational_drive ${DRIVEID_TO_DEV[$driveid]}) -eq 0 ]]; then
+                log_verbose "-> Skipping non-rotational drive: $driveid"
             fi
 
             log_verbose "-> Detected disk in pool $poolname: ${DRIVEID_TO_DEV[$driveid]} ($driveid)"
