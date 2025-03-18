@@ -263,7 +263,7 @@ function populate_driveid_to_dev_array() {
             log_verbose "Creating disk to dev mapping using: partuuid"
             while read -r row; do
                 local partuuid=$(basename -- "${row}")
-                local dev=$(basename -- "$(readlink -f "${row}")" | sed "s/[0-9]\+$//")
+                local dev=$(basename -- "$(readlink -f "${row}")" | sed -e "s/[0-9]\+$//" -e "s/\(nvme[0-9n]\+\)p/\1/")
                 DRIVEID_TO_DEV[$partuuid]=$dev
             done < <(find /dev/disk/by-partuuid/ -type l)
         ;;
