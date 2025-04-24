@@ -177,12 +177,6 @@ boot.
 
 ![Spindown timer post init task](screenshots/task.png)
 
-In order to be able to check on the script at any time, let the task run the 
-script in a tmux session, and add the `-c` option. An example would be: 
-`tmux new-session -d -s spindown_timer "/path/to/spindown_timer.sh -t 3600 -p 300 -i ada6 -c"`
-You can now see what the script has been doing by running the following in a
-shell: `tmux attach -t spindown_timer`.
-
 _Note: Be sure to select `Command` as `Type`_
 
 _Note: With FreeNAS-11.3 a `Timeout` was introduced. However, the spindown
@@ -253,6 +247,12 @@ does perform no spindowns:
 ```bash
 ./spindown_timer.sh -d -c -p 60
 ```
+
+In order to be able to check on the script at any given time, you can run it
+inside a tmux session, and add the `-c` option. An example would be:
+`tmux new-session -d -s spindown_timer "/path/to/spindown_timer.sh -d -c -p 60"`
+You can now see what the script has been doing by running the following in a
+shell: `tmux attach -t spindown_timer`.
 
 
 #### Manual: ATA drives
