@@ -251,6 +251,12 @@ does perform no spindowns:
 ./spindown_timer.sh -d -c -p 60
 ```
 
+In order to be able to check on the script at any given time, you can run it
+inside a tmux session, and add the `-c` option. An example would be:
+`tmux new-session -d -s spindown_timer "/path/to/spindown_timer.sh -d -c -p 60"`
+You can now see what the script has been doing by running the following in a
+shell: `tmux attach -t spindown_timer`.
+
 
 #### Manual: ATA drives
 
