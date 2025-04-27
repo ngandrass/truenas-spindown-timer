@@ -1,5 +1,10 @@
 # Changelog
 
+## Version X.Y.Z (YYYY-MM-DD)
+  * Exit on start if script is not run as root
+    * Root privileges are required to access the drives and programms like `camcontrol` or `hdparm`
+
+
 ## Version 2.4.0 (2025-02-07)
   * Fix shutdown mode on TrueNAS SCALE
   * Add support for using `smartctl` to interact with drives

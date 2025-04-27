@@ -612,6 +612,12 @@ function main() {
     detect_host_platform
     log_verbose "Running as user: $(whoami) (UID: $(id -u))"
 
+    # Check if we are running as root
+    if [ "$EUID" -ne 0 ]; then
+        log_error "This script must be run as root. Please use sudo or run as root directly."
+        exit 1
+    fi
+
     # Setup one shot mode, if selected
     if [[ $ONESHOT_MODE -eq 1 ]]; then
         TIMEOUT=$POLL_TIME
