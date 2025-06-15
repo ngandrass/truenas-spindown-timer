@@ -32,7 +32,7 @@
 # SOFTWARE.
 # ##################################################
 
-VERSION=2.4.0
+VERSION=2.5.0
 TIMEOUT=3600                                # Default timeout before considering a drive as idle
 POLL_TIME=600                               # Default time to wait during a single iostat call
 IGNORED_DRIVES=""                           # Default list of drives that are never spun down

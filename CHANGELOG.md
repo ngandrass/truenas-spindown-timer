@@ -1,6 +1,6 @@
 # Changelog
 
-## Version X.Y.Z (YYYY-MM-DD)
+## Version 2.5.0 (2025-06-15)
   * Fix spindown of SCSI drives when using `smartctl`
   * Prefer use of `smartctl` over `hdparm` on TrueNAS SCALE
   * Exit on start if script is not run as root
