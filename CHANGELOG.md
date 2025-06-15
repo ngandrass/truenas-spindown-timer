@@ -1,6 +1,7 @@
 # Changelog
 
 ## Version X.Y.Z (YYYY-MM-DD)
+  * Fix spindown of SCSI drives when using `smartctl`
   * Exit on start if script is not run as root
     * Root privileges are required to access the drives and programms like `camcontrol` or `hdparm`
 

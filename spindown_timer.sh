@@ -579,7 +579,13 @@ function spindown_drive() {
                     hdparm -q -y "/dev/$1"
                 ;;
                 "smartctl")
-                    smartctl --set=standby,now "/dev/$1"
+                    if [[ $(is_ata_drive $1) -eq 1 ]]; then
+                        # Spindown ATA drive
+                        smartctl --set=standby,now "/dev/$1"
+                    else
+                        # Spindown SCSI drive
+                        smartctl -d scsi --set=standby,now "/dev/$1"
+                    fi
                 ;;
             esac
 
