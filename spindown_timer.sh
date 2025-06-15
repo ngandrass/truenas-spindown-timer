@@ -189,7 +189,7 @@ function detect_host_platform() {
 ##
 detect_disk_ctrl_tool() {
     local SUPPORTED_DISK_CTRL_TOOLS
-    SUPPORTED_DISK_CTRL_TOOLS=("camcontrol" "hdparm" "smartctl")
+    SUPPORTED_DISK_CTRL_TOOLS=("camcontrol" "smartctl" "hdparm")
 
     # If a specific tool is given by the user (via -x), validate it
     if [[ " ${SUPPORTED_DISK_CTRL_TOOLS[@]} " =~ " ${DISK_CTRL_TOOL} " ]]; then
