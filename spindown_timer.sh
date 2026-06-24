@@ -523,7 +523,7 @@ function drive_is_spinning() {
             if [[ -z $(hdparm -C "/dev/$1" | grep 'standby') ]]; then echo 1; else echo 0; fi
         ;;
         "smartctl")
-            if [[ -z $(smartctl --nocheck standby -i "/dev/$1" | grep -q 'Device is in STANDBY mode') ]]; then echo 1; else echo 0; fi
+            if [[ -z $(smartctl --nocheck standby -i "/dev/$1" | grep -i 'STANDBY') ]]; then echo 1; else echo 0; fi
         ;;
     esac
 }
