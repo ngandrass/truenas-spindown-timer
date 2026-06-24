@@ -4,14 +4,14 @@
 # TrueNAS HDD Spindown Timer
 # Monitors drive I/O and forces HDD spindown after a given idle period.
 #
-# Version: 2.4.0
+# Version: 2.5.1
 #
 # See: https://github.com/ngandrass/truenas-spindown-timer
 #
 #
 # MIT License
 # 
-# Copyright (c) 2025 Niels Gandraß <niels@gandrass.de>
+# Copyright (c) 2026 Niels Gandraß <niels@gandrass.de>
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -32,7 +32,7 @@
 # SOFTWARE.
 # ##################################################
 
-VERSION=2.5.0
+VERSION=2.5.1
 TIMEOUT=3600                                # Default timeout before considering a drive as idle
 POLL_TIME=600                               # Default time to wait during a single iostat call
 IGNORED_DRIVES=""                           # Default list of drives that are never spun down

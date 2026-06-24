@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 2.5.1 (2026-06-24)
+  * Fix smartctl standby detection (thanks to @Dvdboy42)
+
+
 ## Version 2.5.0 (2025-06-15)
   * Fix spindown of SCSI drives when using `smartctl`
   * Prefer use of `smartctl` over `hdparm` on TrueNAS SCALE
